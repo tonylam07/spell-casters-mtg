@@ -29,7 +29,10 @@ export function TrackedCardTray({
 }: TrackedCardTrayProps) {
   if (cards.length === 0) return null
   return (
-    <div className="inset-x-2 bottom-2 max-h-32 p-1.5 backdrop-blur-sm absolute z-20 overflow-y-auto rounded-lg border border-surface-3 bg-surface-1/90">
+    <div
+      data-testid="tracked-card-tray"
+      className="inset-x-2 bottom-20 max-h-40 p-1.5 backdrop-blur-sm shadow-lg absolute z-30 overflow-y-auto rounded-lg border border-surface-3 bg-surface-1/95"
+    >
       <div className="space-y-1">
         {cards.map((card) => (
           <TrackedCardRow

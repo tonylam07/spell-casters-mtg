@@ -7,7 +7,8 @@ import { useCardDetector } from '@/hooks/useCardDetector'
 import { useTrackedCards } from '@/hooks/useTrackedCards'
 import { useVideoOrientation } from '@/hooks/useVideoOrientation'
 import { attachVideoStream } from '@/lib/video-stream-utils'
-import { Bookmark } from 'lucide-react'
+import { Bookmark, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { ContextMenuItem } from '@repo/ui/components/context-menu'
 
@@ -122,17 +123,45 @@ export const LocalVideoCard = memo(function LocalVideoCard({
     [cards, currentUser?.id],
   )
   const lastResult = cardQuery.state.result
-  const trackTopSlot = lastResult?.scryfallId ? (
-    <ContextMenuItem
-      onSelect={() => {
-        if (!lastResult.scryfallId) return
-        void trackCard(lastResult.scryfallId, lastResult.name)
-      }}
-    >
-      <Bookmark className="mr-2 h-4 w-4" />
-      Track {lastResult.name}
-    </ContextMenuItem>
-  ) : null
+  const isQuerying = cardQuery.state.status === 'querying'
+  const trackTopSlot = (() => {
+    if (lastResult?.scryfallId) {
+      return (
+        <ContextMenuItem
+          onSelect={() => {
+            if (!lastResult.scryfallId) return
+            void trackCard(lastResult.scryfallId, lastResult.name)
+              .then(() =>
+                toast.success(`Tracking "${lastResult.name}"`, {
+                  duration: 2500,
+                }),
+              )
+              .catch((error) => {
+                console.error('[LocalVideoCard] trackCard failed:', error)
+                toast.error('Failed to track card')
+              })
+          }}
+        >
+          <Bookmark className="mr-2 h-4 w-4" />
+          Track {lastResult.name}
+        </ContextMenuItem>
+      )
+    }
+    if (isQuerying) {
+      return (
+        <ContextMenuItem disabled>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Identifying card...
+        </ContextMenuItem>
+      )
+    }
+    return (
+      <ContextMenuItem disabled>
+        <Bookmark className="mr-2 h-4 w-4" />
+        No card recognized — click tile first
+      </ContextMenuItem>
+    )
+  })()
 
   // Audio muted state is derived from context's audioEnabled preference
   const isAudioMuted = !audioEnabled
