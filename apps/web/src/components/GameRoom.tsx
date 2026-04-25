@@ -116,7 +116,9 @@ function GameRoomContent({
   // Compute shareable link (only on client)
   const shareLink = useMemo(() => {
     if (typeof window === 'undefined') return ''
-    return `${window.location.origin}/game/${roomId}`
+    // NOTE: links land on `/` then client-redirect to `/game/{id}` to avoid
+    // a known SSR 500 on direct hits to /game/{id}. See routes/index.tsx.
+    return `${window.location.origin}/?join=${roomId}`
   }, [roomId])
 
   // HOOK: Dialog open state - only opens when user clicks settings button

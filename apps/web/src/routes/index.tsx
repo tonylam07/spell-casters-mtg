@@ -12,6 +12,8 @@ const AUTH_RETURN_TO_KEY = 'auth-return-to'
 
 const searchSchema = z.object({
   error: z.string().optional(),
+  /** Workaround for /game/{id} SSR 500 — share links use /?join=ROOMID and we redirect client-side */
+  join: z.string().optional(),
 })
 
 export const Route = createFileRoute('/')({
@@ -21,7 +23,7 @@ export const Route = createFileRoute('/')({
 })
 
 function LandingPageContent() {
-  const { error } = Route.useSearch()
+  const { error, join } = Route.useSearch()
   const navigate = useNavigate()
   const {
     user,
@@ -29,6 +31,21 @@ function LandingPageContent() {
     signIn,
     signInWithPreviewCode,
   } = useAuth()
+
+  // Workaround for /game/{id} SSR 500: share links land here as
+  // /?join=ROOMID and we navigate client-side to the game route, bypassing
+  // SSR entirely. If the user isn't authed yet, stash the target so the
+  // post-auth redirect lands them in the room.
+  useEffect(() => {
+    if (!join) return
+    const target = `/game/${join}`
+    if (isAuthLoading) return
+    if (!user) {
+      window.sessionStorage.setItem(AUTH_RETURN_TO_KEY, target)
+      return
+    }
+    navigate({ to: target, search: {} })
+  }, [join, user, isAuthLoading, navigate])
 
   // After authentication completes, redirect to the stored return URL (e.g., game room)
   useEffect(() => {
