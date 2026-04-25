@@ -60,10 +60,24 @@ export default defineConfig(({ mode: mode }) => {
             // landing/license SSR chunks. Mark them external so Node resolves
             // them at runtime instead.
             rollupConfig: {
-              external: [/^convex(\/.*)?$/, /^@convex-dev\/auth(\/.*)?$/],
+              external: [
+                /^convex(\/.*)?$/,
+                /^@convex-dev\/auth(\/.*)?$/,
+                // use-sync-external-store: nitro's CJS shim of this dep
+                // bundles a broken react.mjs that crashes on the React 19
+                // Activity setter during SSR (`/game/{id}` returned 500).
+                // Adding it as a direct dep of apps/web (so Vercel's
+                // tracer pulls it in) and externalizing forces Node to
+                // resolve it at runtime and skip the broken bundled shim.
+                /^use-sync-external-store(\/.*)?$/,
+              ],
             },
             rolldownConfig: {
-              external: [/^convex(\/.*)?$/, /^@convex-dev\/auth(\/.*)?$/],
+              external: [
+                /^convex(\/.*)?$/,
+                /^@convex-dev\/auth(\/.*)?$/,
+                /^use-sync-external-store(\/.*)?$/,
+              ],
             },
           })
         : false,

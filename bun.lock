@@ -53,6 +53,7 @@
       "dependencies": {
         "@repo/card-detection": "workspace:*",
         "tesseract.js": "^7.0.0",
+        "use-sync-external-store": "^1.6.0",
       },
       "devDependencies": {
         "@huggingface/transformers": "^3.7.5",
