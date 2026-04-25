@@ -4,8 +4,12 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useCardQueryContext } from '@/contexts/CardQueryContext'
 import { useMediaStreams } from '@/contexts/MediaStreamContext'
 import { useCardDetector } from '@/hooks/useCardDetector'
+import { useTrackedCards } from '@/hooks/useTrackedCards'
 import { useVideoOrientation } from '@/hooks/useVideoOrientation'
 import { attachVideoStream } from '@/lib/video-stream-utils'
+import { Bookmark } from 'lucide-react'
+
+import { ContextMenuItem } from '@repo/ui/components/context-menu'
 
 import { PlayerStatsOverlay } from './PlayerStatsOverlay'
 import { PlayerVideoCard } from './PlayerVideoCard'
@@ -16,6 +20,7 @@ import {
   LocalMediaControls,
   VideoDisabledPlaceholder,
 } from './PlayerVideoCardParts'
+import { TrackedCardTray } from './TrackedCardTray'
 import { VideoOrientationContextMenu } from './VideoOrientationContextMenu'
 
 // Container that holds the video + detection overlay; the orientation
@@ -110,6 +115,25 @@ export const LocalVideoCard = memo(function LocalVideoCard({
     void cardQuery.query(canvas)
   }, [cardQuery, getCroppedCanvas])
 
+  // Tracked cards (Convex live query, owner-gated mutations)
+  const { cards, trackCard, untrackCard, bump } = useTrackedCards(roomId ?? '')
+  const myCards = useMemo(
+    () => cards.filter((card) => card.ownerUserId === currentUser?.id),
+    [cards, currentUser?.id],
+  )
+  const lastResult = cardQuery.state.result
+  const trackTopSlot = lastResult?.scryfallId ? (
+    <ContextMenuItem
+      onSelect={() => {
+        if (!lastResult.scryfallId) return
+        void trackCard(lastResult.scryfallId, lastResult.name)
+      }}
+    >
+      <Bookmark className="mr-2 h-4 w-4" />
+      Track {lastResult.name}
+    </ContextMenuItem>
+  ) : null
+
   // Audio muted state is derived from context's audioEnabled preference
   const isAudioMuted = !audioEnabled
 
@@ -184,7 +208,10 @@ export const LocalVideoCard = memo(function LocalVideoCard({
   return (
     <PlayerVideoCard ref={videoContainerRef}>
       {hasVideoStream ? (
-        <VideoOrientationContextMenu orientation={orientation}>
+        <VideoOrientationContextMenu
+          orientation={orientation}
+          topSlot={trackTopSlot}
+        >
           <div
             style={orientedContainerStyle}
             onClick={handleIdentifyClick}
@@ -234,6 +261,16 @@ export const LocalVideoCard = memo(function LocalVideoCard({
         onToggleAudio={handleToggleAudio}
         isTogglingVideo={isTogglingVideo}
       />
+
+      {/* Tracked cards tray (own tile, editable) */}
+      {roomId && currentUser ? (
+        <TrackedCardTray
+          cards={myCards}
+          editable
+          onBump={bump}
+          onUntrack={untrackCard}
+        />
+      ) : null}
     </PlayerVideoCard>
   )
 })

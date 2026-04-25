@@ -97,6 +97,7 @@ let D = 512
 export type CardMeta = {
   name: string
   set: string
+  scryfallId?: string
   scryfall_uri?: string
   image_url?: string
   card_url?: string

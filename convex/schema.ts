@@ -64,6 +64,10 @@ export default defineSchema({
     health: v.number(),
     /** Player's current poison counters */
     poison: v.number(),
+    /** Player's current energy counters (Commander) */
+    energy: v.optional(v.number()),
+    /** Player's current experience counters (Commander) */
+    experience: v.optional(v.number()),
     /** Player's commander list (1-2 entries, owned by the player) */
     commanders: v.array(
       v.object({
@@ -128,6 +132,39 @@ export default defineSchema({
   })
     .index('by_roomId', ['roomId'])
     .index('by_roomId_userId', ['roomId', 'userId']),
+
+  /**
+   * trackedCards - Player-tracked card instances with counters
+   *
+   * Created when a player chooses "Track this card" on a recognized card.
+   * Persists for the life of the room. Owner-gated mutations (only the
+   * card's ownerUserId may add/remove counters or untrack).
+   */
+  trackedCards: defineTable({
+    /** Reference to room */
+    roomId: v.string(),
+    /** Discord user ID of card's owner (the player whose webcam shows it) */
+    ownerUserId: v.string(),
+    /** Scryfall card ID for art lookup */
+    scryfallId: v.string(),
+    /** Cached card name for display */
+    name: v.string(),
+    /** Counter map; absent key = 0 */
+    counters: v.object({
+      plus1plus1: v.optional(v.number()),
+      minus1minus1: v.optional(v.number()),
+      loyalty: v.optional(v.number()),
+      charge: v.optional(v.number()),
+      stun: v.optional(v.number()),
+      shield: v.optional(v.number()),
+      quest: v.optional(v.number()),
+      time: v.optional(v.number()),
+    }),
+    /** When the instance was created */
+    createdAt: v.number(),
+  })
+    .index('by_room', ['roomId'])
+    .index('by_room_owner', ['roomId', 'ownerUserId']),
 
   /**
    * counters - Sequential counters for generating IDs

@@ -14,6 +14,7 @@ import { useMediaStreams } from '@/contexts/MediaStreamContext'
 import { usePresence } from '@/contexts/PresenceContext'
 import { useCardDetector } from '@/hooks/useCardDetector'
 import { useConvexWebRTC } from '@/hooks/useConvexWebRTC'
+import { useTrackedCards } from '@/hooks/useTrackedCards'
 import { useVideoOrientation } from '@/hooks/useVideoOrientation'
 import { useVideoStreamAttachment } from '@/hooks/useVideoStreamAttachment'
 import {
@@ -50,6 +51,7 @@ import {
   PlayerNameBadge,
   VideoDisabledPlaceholder,
 } from './PlayerVideoCardParts'
+import { TrackedCardTray } from './TrackedCardTray'
 import { VideoOrientationContextMenu } from './VideoOrientationContextMenu'
 
 // Container that holds the video + detection overlay; rotation/mirror
@@ -207,6 +209,13 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
     [orientation.transform],
   )
 
+  // Tracked cards for THIS remote player (read-only on their tile)
+  const { cards: allTrackedCards } = useTrackedCards(roomId)
+  const theirCards = useMemo(
+    () => allTrackedCards.filter((card) => card.ownerUserId === playerId),
+    [allTrackedCards, playerId],
+  )
+
   // Click-to-identify: run CLIP recognition on whatever the detector last cropped
   const cardQuery = useCardQueryContext()
   const handleIdentifyClick = () => {
@@ -274,6 +283,9 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
         <PlayerNameBadge position="bottom-center">
           <span className="text-white">{playerName}</span>
         </PlayerNameBadge>
+
+        {/* Tracked-card tray for this remote player (read-only) */}
+        <TrackedCardTray cards={theirCards} editable={false} />
 
         {localParticipant && (
           <>
