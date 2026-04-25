@@ -17,7 +17,11 @@ const searchSchema = z.object({
 })
 
 export const Route = createFileRoute('/')({
-  ssr: true,
+  // Set to false because nitro's bundled use-sync-external-store / React 19
+  // shim crashes during SSR (`Cannot set properties of undefined (setting
+  // 'Activity')`). The landing page is small + works fine as SPA, so
+  // bypassing SSR here is the simplest unblock.
+  ssr: false,
   component: LandingPageRoute,
   validateSearch: zodValidator(searchSchema),
 })

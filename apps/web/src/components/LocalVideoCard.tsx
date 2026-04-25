@@ -7,7 +7,7 @@ import { useCardDetector } from '@/hooks/useCardDetector'
 import { useTrackedCards } from '@/hooks/useTrackedCards'
 import { useVideoOrientation } from '@/hooks/useVideoOrientation'
 import { attachVideoStream } from '@/lib/video-stream-utils'
-import { Bookmark, Loader2 } from 'lucide-react'
+import { Bookmark, Loader2, MicOff } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { ContextMenuItem } from '@repo/ui/components/context-menu'
@@ -79,6 +79,7 @@ export const LocalVideoCard = memo(function LocalVideoCard({
     toggleVideo,
     toggleAudio: toggleLocalAudio,
     mediaPreferences: { videoEnabled, audioEnabled },
+    permissions: { microphoneAvailable },
   } = useMediaStreams()
 
   const [isTogglingVideo, setIsTogglingVideo] = useState(false)
@@ -272,6 +273,18 @@ export const LocalVideoCard = memo(function LocalVideoCard({
         </VideoOrientationContextMenu>
       ) : (
         <VideoDisabledPlaceholder />
+      )}
+
+      {/* No-mic banner — surfaces gracefully when mic is denied/missing */}
+      {!microphoneAvailable && (
+        <div
+          data-testid="no-microphone-banner"
+          className="left-3 top-3 gap-1.5 px-2 py-1 text-xs shadow-sm backdrop-blur-sm absolute z-20 inline-flex items-center rounded-md border border-warning/40 bg-warning/15 text-warning"
+          title="Other players will not hear you"
+        >
+          <MicOff className="h-3 w-3" />
+          <span>No microphone</span>
+        </div>
       )}
 
       {/* Stats Overlay */}

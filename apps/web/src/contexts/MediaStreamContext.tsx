@@ -77,6 +77,8 @@ interface MediaStreamContextValue {
     needsPermissionDialog: boolean
     permissionsBlocked: boolean
     permissionsGranted: boolean
+    /** True iff a microphone permission was granted and a stream is usable */
+    microphoneAvailable: boolean
     recheckPermissions: () => Promise<void>
   }
 }
@@ -99,19 +101,27 @@ export function MediaStreamProvider({ children }: MediaStreamProviderProps) {
     !isCheckingPermissions &&
     (cameraPermission.shouldShowDialog || microphonePermission.shouldShowDialog)
 
+  // Camera blocked is still a hard fail (no point joining without video).
+  // Mic denied is acceptable — we just won't capture audio.
   const permissionsBlocked =
-    !isCheckingPermissions &&
-    (cameraPermission.browserState === 'denied' ||
-      microphonePermission.browserState === 'denied')
+    !isCheckingPermissions && cameraPermission.browserState === 'denied'
 
   const microphoneGranted =
     !isCheckingPermissions && microphonePermission.browserState === 'granted'
+  const microphoneAvailable = microphoneGranted
+  const microphoneOptedOut =
+    !isCheckingPermissions &&
+    (microphonePermission.browserState === 'denied' ||
+      microphonePermission.browserState === 'unknown')
+  // Mic is "resolved" once we know the user either granted, denied, or has
+  // no device — at that point we can proceed with media setup either way.
+  const microphoneResolved = microphoneGranted || microphoneOptedOut
   const cameraGrantedOrUnavailable =
     !isCheckingPermissions &&
     (cameraPermission.browserState === 'granted' ||
       cameraPermission.browserState === 'prompt')
 
-  const permissionsGranted = microphoneGranted && cameraGrantedOrUnavailable
+  const permissionsGranted = microphoneResolved && cameraGrantedOrUnavailable
 
   const mediaPreferences = useMediaPreferenceStore()
 
@@ -124,7 +134,9 @@ export function MediaStreamProvider({ children }: MediaStreamProviderProps) {
   const audioResult = useMediaDevice({
     kind: 'audioinput',
     selectedDeviceId: mediaPreferences.selectedAudioInputDeviceId,
-    enabled: permissionsGranted && mediaPreferences.audioEnabled,
+    // Only attempt audio acquisition when mic actually granted; otherwise
+    // navigator.getUserMedia would throw NotAllowedError and we'd loop.
+    enabled: microphoneAvailable && mediaPreferences.audioEnabled,
   })
 
   const audioOutputState = useAudioOutput({
@@ -340,6 +352,7 @@ export function MediaStreamProvider({ children }: MediaStreamProviderProps) {
         needsPermissionDialog,
         permissionsBlocked,
         permissionsGranted,
+        microphoneAvailable,
         recheckPermissions,
       },
     }),
@@ -359,6 +372,7 @@ export function MediaStreamProvider({ children }: MediaStreamProviderProps) {
       needsPermissionDialog,
       permissionsBlocked,
       permissionsGranted,
+      microphoneAvailable,
       recheckPermissions,
     ],
   )
