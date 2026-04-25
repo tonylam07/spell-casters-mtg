@@ -14,10 +14,17 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useCardQueryContext } from '@/contexts/CardQueryContext'
 import { useCommanderDamageDialog } from '@/contexts/CommanderDamageDialogContext'
 import { usePresence } from '@/contexts/PresenceContext'
-import { History, Trash2 } from 'lucide-react'
+import { History, PanelLeft, Trash2 } from 'lucide-react'
 
 import { Button } from '@repo/ui/components/button'
 import { Card } from '@repo/ui/components/card'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@repo/ui/components/sheet'
 import { Skeleton } from '@repo/ui/components/skeleton'
 import {
   Tooltip,
@@ -354,39 +361,74 @@ function SidebarContent({
     [roomSeatCount, uniqueParticipants.length, setRoomSeatCount],
   )
 
+  const sidebarContent = (
+    <>
+      <div className="flex-shrink-0">
+        <PlayerList
+          players={playersWithStatus}
+          isLobbyOwner={isLobbyOwner}
+          localPlayerName={playerName}
+          onKickPlayer={onKickPlayer}
+          onBanPlayer={onBanPlayer}
+          ownerId={ownerId ?? undefined}
+          mutedPlayers={mutedPlayers}
+          onToggleMutePlayer={onToggleMutePlayer}
+          currentUserId={user?.id ?? undefined}
+          onOpenCommanderDamage={commanderDamageDialog?.setOpenForPlayerId}
+          seatCount={roomSeatCount}
+          onChangeSeatCount={isLobbyOwner ? handleChangeSeatCount : undefined}
+          onCopyShareLink={onCopyShareLink}
+          onResetGame={onResetGame}
+        />
+      </div>
+      <div className="flex-shrink-0">
+        <CardPreview onClose={clearResult} />
+      </div>
+      <div className="min-h-0 flex flex-1 flex-col">
+        <CardHistoryList
+          history={history}
+          onSelect={handleHistorySelect}
+          selectedCardId={selectedCardIdForHighlight}
+          onClear={clearHistory}
+          onRemove={removeFromHistory}
+        />
+      </div>
+    </>
+  )
+
   return (
     <>
-      <div className="w-64 gap-4 flex h-full flex-shrink-0 flex-col">
-        <div className="flex-shrink-0">
-          <PlayerList
-            players={playersWithStatus}
-            isLobbyOwner={isLobbyOwner}
-            localPlayerName={playerName}
-            onKickPlayer={onKickPlayer}
-            onBanPlayer={onBanPlayer}
-            ownerId={ownerId ?? undefined}
-            mutedPlayers={mutedPlayers}
-            onToggleMutePlayer={onToggleMutePlayer}
-            currentUserId={user?.id ?? undefined}
-            onOpenCommanderDamage={commanderDamageDialog?.setOpenForPlayerId}
-            seatCount={roomSeatCount}
-            onChangeSeatCount={isLobbyOwner ? handleChangeSeatCount : undefined}
-            onCopyShareLink={onCopyShareLink}
-            onResetGame={onResetGame}
-          />
-        </div>
-        <div className="flex-shrink-0">
-          <CardPreview onClose={clearResult} />
-        </div>
-        <div className="min-h-0 flex flex-1 flex-col">
-          <CardHistoryList
-            history={history}
-            onSelect={handleHistorySelect}
-            selectedCardId={selectedCardIdForHighlight}
-            onClear={clearHistory}
-            onRemove={removeFromHistory}
-          />
-        </div>
+      {/* Desktop sidebar (>= md) */}
+      <div className="w-64 gap-4 md:flex hidden h-full flex-shrink-0 flex-col">
+        {sidebarContent}
+      </div>
+
+      {/* Mobile drawer trigger + Sheet (< md). Floats top-left over the
+          video grid so users can open the player list / card history. */}
+      <div className="md:hidden left-3 top-20 absolute z-30">
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button
+              size="icon"
+              variant="outline"
+              className="h-10 w-10 backdrop-blur-sm shadow-lg border-surface-3 bg-surface-1/90"
+              aria-label="Open game sidebar"
+            >
+              <PanelLeft className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent
+            side="left"
+            className="gap-4 p-4 max-w-sm flex w-[85vw] flex-col border-surface-2 bg-surface-1"
+          >
+            <SheetHeader className="p-0">
+              <SheetTitle className="text-text-secondary">
+                Game sidebar
+              </SheetTitle>
+            </SheetHeader>
+            {sidebarContent}
+          </SheetContent>
+        </Sheet>
       </div>
 
       {/* Commanders Panel – kept mounted via Activity for smooth slide animation */}
