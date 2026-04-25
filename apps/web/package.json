@@ -24,7 +24,8 @@
     "e2e:torture:ui": "bun run playwright test --project=torture --ui"
   },
   "dependencies": {
-    "@repo/card-detection": "workspace:*"
+    "@repo/card-detection": "workspace:*",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@huggingface/transformers": "^3.7.5",

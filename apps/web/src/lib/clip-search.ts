@@ -550,6 +550,10 @@ export async function embedFromImageElement(imgEl: HTMLImageElement) {
   return l2norm(Float32Array.from(out.data))
 }
 
+export function getCardMetadata(): CardMeta[] | null {
+  return meta
+}
+
 export function isModelReady(): boolean {
   return extractor !== null && meta !== null && db !== null
 }

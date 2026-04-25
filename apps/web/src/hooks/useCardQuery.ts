@@ -1,13 +1,17 @@
-import type { EmbeddingMetrics } from '@/lib/clip-search'
+import type { CardMeta, EmbeddingMetrics } from '@/lib/clip-search'
+import type { ClipResult, RankedCandidate } from '@/lib/recognition-fusion'
+import type { NameIndex } from '@/lib/scryfall-name-index'
 import type {
   CardHistoryEntry,
+  CardQueryAlternative,
   CardQueryResult,
   CardQueryState,
   UseCardQueryReturn,
 } from '@/types/card-query'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   embedFromCanvas,
+  getCardMetadata,
   isModelReady,
   loadEmbeddingsAndMetaFromPackage,
   loadModel,
@@ -15,7 +19,49 @@ import {
   topK,
 } from '@/lib/clip-search'
 import { generateOrientationCandidates } from '@/lib/detectors/geometry/orientation'
+import { FrameConsensusBuffer } from '@/lib/frame-consensus'
+import { fuse } from '@/lib/recognition-fusion'
+import { buildNameIndex } from '@/lib/scryfall-name-index'
+import { runTitleOcr } from '@/lib/title-ocr'
 import { validateCanvas } from '@/types/card-query'
+
+/**
+ * Lazy-built scryfall name index. We don't have direct access to the loaded
+ * card metadata from this module, so getNameIndex() fishes the metadata out
+ * of `topK`'s loaded state via a one-time best-effort warm-up. Failure is
+ * non-fatal — fusion will simply CLIP-only.
+ */
+let cachedNameIndex: NameIndex | null = null
+async function getNameIndex(): Promise<NameIndex | null> {
+  if (cachedNameIndex) return cachedNameIndex
+  try {
+    await loadEmbeddingsAndMetaFromPackage()
+    const meta = getCardMetadata()
+    if (!meta) return null
+    const entries = meta
+      .filter((m): m is CardMeta & { scryfallId: string } => !!m.scryfallId)
+      .map((m) => ({
+        name: m.name,
+        scryfallId: m.scryfallId,
+        set: m.set,
+      }))
+    cachedNameIndex = buildNameIndex(entries)
+    return cachedNameIndex
+  } catch (err) {
+    console.warn('[useCardQuery] failed to build name index:', err)
+    return null
+  }
+}
+
+function toAlternative(rc: RankedCandidate): CardQueryAlternative {
+  return {
+    scryfallId: rc.card.scryfallId,
+    name: rc.card.name,
+    set: rc.card.set,
+    score: rc.score,
+    source: rc.source,
+  }
+}
 
 /** Maximum number of history entries to store per room */
 const MAX_HISTORY_ENTRIES = 30
@@ -91,7 +137,16 @@ export function useCardQuery(roomId: string): UseCardQueryReturn {
     result: null,
     error: null,
     queryImageUrl: null,
+    alternatives: [],
   })
+
+  // Multi-frame consensus voter: lives across queries within this hook
+  // instance. Cleared on manual identify (LocalVideoCard click) so picker
+  // alternatives reflect only the latest sequence of detections.
+  const consensusBufferRef = useRef<FrameConsensusBuffer | null>(null)
+  if (!consensusBufferRef.current) {
+    consensusBufferRef.current = new FrameConsensusBuffer({ size: 8 })
+  }
 
   // History state
   const [history, setHistory] = useState<CardHistoryEntry[]>([])
@@ -169,11 +224,13 @@ export function useCardQuery(roomId: string): UseCardQueryReturn {
   const clearResult = useCallback(() => {
     cancel()
     setIsDismissed(true) // Dismiss the preview
+    consensusBufferRef.current?.clear()
     setState({
       status: 'idle',
       result: null,
       error: null,
       queryImageUrl: null,
+      alternatives: [],
     })
   }, [cancel])
 
@@ -191,6 +248,7 @@ export function useCardQuery(roomId: string): UseCardQueryReturn {
         result,
         error: null,
         queryImageUrl: null, // Clear query image when manually setting result
+        alternatives: [],
       })
       // Add to history
       addToHistory(result, 'search')
@@ -211,6 +269,7 @@ export function useCardQuery(roomId: string): UseCardQueryReturn {
         result,
         error: null,
         queryImageUrl: null, // Clear query image when manually setting result
+        alternatives: [],
       })
       // Do NOT add to history
     },
@@ -245,6 +304,7 @@ export function useCardQuery(roomId: string): UseCardQueryReturn {
           result: null,
           error: validation.error || 'Invalid canvas',
           queryImageUrl: null,
+          alternatives: [],
         })
         return
       }
@@ -252,13 +312,16 @@ export function useCardQuery(roomId: string): UseCardQueryReturn {
       // Capture query image as data URL (for development debugging)
       const queryImageUrl = canvas.toDataURL('image/png')
 
-      // Set querying state
-      setState({
+      // Set querying state (preserve any prior alternatives so the picker
+      // doesn't blink while a fresh query runs)
+      setState((prev) => ({
         status: 'querying',
-        result: null,
+        result: prev.result,
         error: null,
         queryImageUrl,
-      })
+        alternatives: prev.alternatives,
+        ocrText: prev.ocrText,
+      }))
 
       try {
         // Check if aborted
@@ -287,6 +350,7 @@ export function useCardQuery(roomId: string): UseCardQueryReturn {
               result: null,
               error: errorMessage,
               queryImageUrl,
+              alternatives: [],
             })
             return
           }
@@ -486,16 +550,79 @@ export function useCardQuery(roomId: string): UseCardQueryReturn {
           ? winningCanvas.toDataURL('image/png')
           : queryImageUrl
 
+        // Build the CLIP top-K list for fusion. Falls back gracefully if the
+        // best embedding wasn't captured (shouldn't happen).
+        const clipTopK: ClipResult[] = bestEmbedding
+          ? topK(bestEmbedding, 5).map((r) => ({
+              name: r.name,
+              scryfallId: r.scryfallId ?? '',
+              set: r.set,
+              score: r.score,
+            }))
+          : [
+              {
+                name: bestResult.name,
+                scryfallId: bestResult.scryfallId ?? '',
+                set: bestResult.set,
+                score: bestResult.score,
+              },
+            ]
+
+        // Run OCR + fusion + consensus in parallel with the rest of the
+        // success path. OCR errors are swallowed; CLIP-only is still useful.
+        const [ocrResult, nameIndex] = await Promise.all([
+          winningCanvas
+            ? runTitleOcr(winningCanvas).catch((err) => {
+                console.warn('[useCardQuery] title OCR failed:', err)
+                return { text: '', confidence: 0, durationMs: 0 }
+              })
+            : Promise.resolve({ text: '', confidence: 0, durationMs: 0 }),
+          getNameIndex(),
+        ])
+
+        const fused = nameIndex
+          ? fuse(clipTopK, ocrResult.text, ocrResult.confidence, nameIndex)
+          : clipTopK.map((c) => ({
+              card: c,
+              score: c.score,
+              source: 'clip' as const,
+            }))
+
+        consensusBufferRef.current?.push(fused)
+        const consensus = consensusBufferRef.current?.consensus()
+        const consensusTop = consensus?.top
+        const alternatives = (consensus?.alternatives ?? []).map(toAlternative)
+
+        // Use the consensus top if higher than the single-frame best, else
+        // fall back to the single-frame top1.
+        const finalResult: CardQueryResult = consensusTop
+          ? {
+              name: consensusTop.card.name,
+              set: consensusTop.card.set,
+              score: consensusTop.score,
+              scryfallId: consensusTop.card.scryfallId,
+            }
+          : bestResult
+
+        if (ocrResult.text) {
+          console.log(
+            `%c[OCR] "${ocrResult.text}" (conf=${(ocrResult.confidence * 100).toFixed(0)}%, ${ocrResult.durationMs.toFixed(0)}ms)`,
+            'background: #FF9800; color: white; padding: 2px 6px; border-radius: 3px;',
+          )
+        }
+
         // Set success state
         setIsDismissed(false) // Un-dismiss when new card is detected
         setState({
           status: 'success',
-          result: bestResult,
+          result: finalResult,
           error: null,
           queryImageUrl: finalQueryImageUrl,
+          alternatives,
+          ocrText: ocrResult.text || undefined,
         })
         // Add to history (detection source)
-        addToHistory(bestResult, 'detection')
+        addToHistory(finalResult, 'detection')
         console.log(
           '[useCardQuery] State updated to success, orientation:',
           bestOrientation,
@@ -511,6 +638,7 @@ export function useCardQuery(roomId: string): UseCardQueryReturn {
             result: null,
             error: errorMessage,
             queryImageUrl,
+            alternatives: [],
           })
         }
       } finally {
@@ -523,6 +651,40 @@ export function useCardQuery(roomId: string): UseCardQueryReturn {
     [cancel, addToHistory],
   )
 
+  const commitAlternative = useCallback(
+    (alt: CardQueryAlternative) => {
+      setState((prev) => ({
+        ...prev,
+        status: 'success',
+        result: {
+          name: alt.name,
+          set: alt.set,
+          score: alt.score,
+          scryfallId: alt.scryfallId,
+        },
+        error: null,
+      }))
+      addToHistory(
+        {
+          name: alt.name,
+          set: alt.set,
+          score: alt.score,
+          scryfallId: alt.scryfallId,
+        },
+        'detection',
+      )
+    },
+    [addToHistory],
+  )
+
+  const resetConsensus = useCallback(() => {
+    consensusBufferRef.current?.clear()
+    setState((prev) => ({ ...prev, alternatives: [] }))
+  }, [])
+
+  // Suppress unused-import warning for useMemo (kept for future use)
+  void useMemo
+
   return {
     state,
     query,
@@ -534,5 +696,7 @@ export function useCardQuery(roomId: string): UseCardQueryReturn {
     clearHistory,
     clearResult,
     removeFromHistory,
+    commitAlternative,
+    resetConsensus,
   }
 }

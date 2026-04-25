@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from '@repo/ui/components/alert'
 import { Button } from '@repo/ui/components/button'
 import { Dialog, DialogContent, DialogTitle } from '@repo/ui/components/dialog'
 
+import { CardPickerPanel } from './CardPickerPanel'
 import { SidebarCard } from './GameRoomSidebar'
 
 interface CardPreviewProps {
@@ -24,7 +25,8 @@ interface CardPreviewProps {
 }
 
 export function CardPreview({ onClose }: CardPreviewProps) {
-  const { state, history, isDismissed } = useCardQueryContext()
+  const { state, history, isDismissed, commitAlternative } =
+    useCardQueryContext()
   const [cardModalOpen, setCardModalOpen] = useState(false)
 
   // Don't show preview if dismissed
@@ -94,6 +96,24 @@ export function CardPreview({ onClose }: CardPreviewProps) {
               </Alert>
             </div>
           )}
+
+          {/* Top-K picker — show when low confidence and we have alternatives */}
+          {cardState === 'success' &&
+            lowConfidence &&
+            state.alternatives.length > 1 && (
+              <div className="px-3 pt-3">
+                <CardPickerPanel
+                  alternatives={state.alternatives}
+                  selectedScryfallId={
+                    'scryfallId' in displayResult
+                      ? displayResult.scryfallId
+                      : undefined
+                  }
+                  ocrText={state.ocrText}
+                  onSelect={commitAlternative}
+                />
+              </div>
+            )}
 
           {/* Card Image */}
           <div className="p-3">

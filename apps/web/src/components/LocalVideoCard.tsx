@@ -113,6 +113,9 @@ export const LocalVideoCard = memo(function LocalVideoCard({
   const handleIdentifyClick = useCallback(() => {
     const canvas = getCroppedCanvas()
     if (!canvas) return
+    // Reset consensus so the picker reflects only the fresh sequence of
+    // detections triggered by this click, not stale frames from a prior card.
+    cardQuery.resetConsensus()
     void cardQuery.query(canvas)
   }, [cardQuery, getCroppedCanvas])
 

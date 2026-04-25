@@ -221,6 +221,7 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
   const handleIdentifyClick = () => {
     const canvas = getCroppedCanvas()
     if (!canvas) return
+    cardQuery.resetConsensus()
     void cardQuery.query(canvas)
   }
 

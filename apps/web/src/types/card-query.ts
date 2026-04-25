@@ -37,6 +37,19 @@ export interface CardQueryResult {
 }
 
 /**
+ * Alternative card candidate surfaced when recognition is low confidence.
+ * Used by CardPickerPanel to let the user one-tap the right card from a
+ * top-K list.
+ */
+export interface CardQueryAlternative {
+  scryfallId: string
+  name: string
+  set: string
+  score: number
+  source: 'clip' | 'ocr+clip' | 'ocr-only'
+}
+
+/**
  * State of a card identification query operation
  *
  * Managed by the useCardQuery hook to track query lifecycle.
@@ -53,6 +66,12 @@ export interface CardQueryState {
 
   /** Data URL of the image used to query the database (dev only) */
   queryImageUrl: string | null
+
+  /** Top-K alternatives across the consensus buffer (incl. the committed top) */
+  alternatives: CardQueryAlternative[]
+
+  /** Raw OCR text (for debug + picker UI hint) */
+  ocrText?: string
 }
 
 /**
@@ -198,6 +217,12 @@ export interface UseCardQueryReturn {
 
   /** Clear the current result state and dismiss the preview */
   clearResult: () => void
+
+  /** Replace the committed top result with a user-picked alternative */
+  commitAlternative: (alt: CardQueryAlternative) => void
+
+  /** Clear the multi-frame consensus buffer (e.g., on manual re-identify) */
+  resetConsensus: () => void
 }
 
 /**
