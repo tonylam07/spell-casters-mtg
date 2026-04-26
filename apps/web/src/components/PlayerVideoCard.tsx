@@ -1,4 +1,5 @@
-import { forwardRef, memo } from 'react'
+import { forwardRef, memo, useCallback, useRef, useState } from 'react'
+import { Maximize2, Minimize2 } from 'lucide-react'
 
 import { Card } from '@repo/ui/components/card'
 
@@ -6,34 +7,40 @@ interface PlayerVideoCardProps {
   children?: React.ReactNode
 }
 
-/**
- * PlayerVideoCard - A composable layout component for video player cards
- *
- * This is a pure layout component that provides the card structure and styling.
- * The parent component is responsible for managing all state and passing children
- * for video elements, overlays, badges, and controls.
- *
- * The ref is forwarded to the video container div (relative min-h-0 flex-1 bg-black).
- *
- * Example usage:
- * ```tsx
- * <PlayerVideoCard ref={containerRef}>
- *   <video ref={videoRef} style={{...}} />
- *   <canvas ref={overlayRef} style={{...}} />
- *   <div className="absolute left-3 top-3">Player Name</div>
- *   <div className="absolute bottom-4 left-1/2">Controls</div>
- * </PlayerVideoCard>
- * ```
- */
 export const PlayerVideoCard = memo(
   forwardRef<HTMLDivElement, PlayerVideoCardProps>(function PlayerVideoCard(
     { children },
     ref,
   ) {
+    const cardRef = useRef<HTMLDivElement>(null)
+    const [isFullscreen, setIsFullscreen] = useState(false)
+
+    const toggleFullscreen = useCallback(async () => {
+      if (!document.fullscreenElement) {
+        await cardRef.current?.requestFullscreen()
+        setIsFullscreen(true)
+      } else {
+        await document.exitFullscreen()
+        setIsFullscreen(false)
+      }
+    }, [])
+
     return (
-      <Card className="flex h-full flex-col overflow-hidden border-surface-2 bg-surface-1">
+      <Card ref={cardRef} className="flex h-full flex-col overflow-hidden border-surface-2 bg-surface-1">
         <div ref={ref} className="min-h-0 bg-black relative flex-1">
           {children}
+          {/* Fullscreen toggle — top-right corner, above other overlays */}
+          <button
+            onClick={toggleFullscreen}
+            className="absolute right-2 top-2 z-30 flex h-7 w-7 items-center justify-center rounded-md bg-black/50 text-white/70 backdrop-blur-sm transition-colors hover:bg-black/70 hover:text-white"
+            title={isFullscreen ? 'Exit fullscreen' : 'Expand tile'}
+          >
+            {isFullscreen ? (
+              <Minimize2 className="h-3.5 w-3.5" />
+            ) : (
+              <Maximize2 className="h-3.5 w-3.5" />
+            )}
+          </button>
         </div>
       </Card>
     )

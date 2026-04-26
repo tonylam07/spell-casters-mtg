@@ -709,22 +709,31 @@ export async function setupCardDetector(args: {
           })
         }
 
-        // 2. Crop the detected card using this instance's context
+        // 2. Crop the detected card using this instance's context.
+        // If the click didn't land inside a bounding box, fall back to the
+        // highest-confidence detected card so a deliberate click always works.
         const cropStart = performance.now()
-        const ok = await cropCardAt(ctx, x, y)
+        let ok = await cropCardAt(ctx, x, y)
+
+        if (!ok && detectedCards.length > 0) {
+          // Fall back: crop whichever card the detector is most confident about
+          const best = [...detectedCards].sort((a, b) => b.score - a.score)[0]
+          if (best) {
+            const frameWidth = ctx.videoEl.videoWidth || ctx.overlayEl.width
+            const frameHeight = ctx.videoEl.videoHeight || ctx.overlayEl.height
+            const cx = ((best.box.xmin + best.box.xmax) / 2) * frameWidth
+            const cy = ((best.box.ymin + best.box.ymax) / 2) * frameHeight
+            ok = await cropCardAt(ctx, cx, cy)
+          }
+        }
+
         metrics.crop = performance.now() - cropStart
 
         if (!ok) {
           console.log(
-            '%c[DEBUG] Failed to crop card at click position',
+            '%c[DEBUG] No card to crop (none detected in frame)',
             'background: #ff9800; color: white; padding: 2px 6px; border-radius: 3px;',
           )
-          console.log('Click position:', { x, y })
-          if (detectedCards.length > 0) {
-            console.log(
-              'Cards were detected but click was not inside any bounding box',
-            )
-          }
         }
 
         if (ok && typeof args.onCrop === 'function') {

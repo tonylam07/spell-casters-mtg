@@ -25,11 +25,12 @@
   },
   "dependencies": {
     "@repo/card-detection": "workspace:*",
+    "qrcode.react": "^4.2.0",
     "tesseract.js": "^7.0.0",
     "use-sync-external-store": "^1.6.0"
   },
   "devDependencies": {
-    "@huggingface/transformers": "^3.7.5",
+    "@huggingface/transformers": "^3.7.6",
     "@ianvs/prettier-plugin-sort-imports": "^4.4.1",
     "@playwright/test": "catalog:",
     "@repo/eslint-config": "workspace:*",
@@ -80,7 +81,7 @@
     "vite": "^7.1.7",
     "vite-plugin-mkcert": "^1.17.9",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^3.2.0",
+    "vitest": "4.1.5",
     "web-vitals": "^4.2.4",
     "xstate": "^5.26.0",
     "zod": "catalog:"

@@ -22,6 +22,8 @@ interface DuplicateSessionDialogProps {
   onClose: () => void
   /** Join this tab as an additional linked seat (e.g. tabletop camera from mobile) */
   onJoinAsTabletop?: () => void
+  /** Dismiss the dialog without leaving (stay in room but stop showing the warning) */
+  onDismiss?: () => void
 }
 
 export function DuplicateSessionDialog({
@@ -29,10 +31,11 @@ export function DuplicateSessionDialog({
   onTransfer,
   onClose,
   onJoinAsTabletop,
+  onDismiss,
 }: DuplicateSessionDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-[450px] border-warning/50 bg-surface-1 [&>button]:hidden">
+    <Dialog open={open} onOpenChange={(o) => { if (!o && onDismiss) onDismiss() }}>
+      <DialogContent className={`sm:max-w-[450px] border-warning/50 bg-surface-1${onDismiss ? '' : ' [&>button]:hidden'}`}>
         <DialogHeader>
           <div className="mb-2 flex justify-center">
             <div className="h-12 w-12 flex items-center justify-center rounded-full bg-warning/20">

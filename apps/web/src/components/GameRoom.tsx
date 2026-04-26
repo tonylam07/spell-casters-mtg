@@ -187,16 +187,16 @@ function GameRoomContent({
     }
   }
 
-  // Handle "Join as tabletop camera" — reload with intentional=1 so this tab
-  // joins as a linked seat without kicking the existing desktop session.
+  // Handle "Join as tabletop camera" — navigate via /?join= to avoid the SSR
+  // 500 that happens on direct /game/:id hits, and add intentional=1 so this
+  // tab joins as a linked seat without kicking the existing desktop session.
   const handleJoinAsTabletop = useCallback(() => {
-    const url = new URL(window.location.href)
+    const url = new URL('/', window.location.origin)
+    url.searchParams.set('join', roomId)
     url.searchParams.set('intentional', '1')
-    if (!url.searchParams.has('seatLabel')) {
-      url.searchParams.set('seatLabel', 'Tabletop')
-    }
+    url.searchParams.set('seatLabel', 'Tabletop')
     window.location.href = url.toString()
-  }, [])
+  }, [roomId])
 
   // Handle closing this tab (user wants to keep other session)
   const handleCloseDuplicateTab = async () => {
@@ -275,6 +275,7 @@ function GameRoomContent({
         onTransfer={handleTransferSession}
         onClose={handleCloseDuplicateTab}
         onJoinAsTabletop={handleJoinAsTabletop}
+        onDismiss={() => setDuplicateDialogDismissed(true)}
       />
 
       {/* Leave Confirmation Dialog */}

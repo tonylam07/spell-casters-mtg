@@ -10,6 +10,7 @@
 import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { Camera, Check, Copy } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 
 import { Button } from '@repo/ui/components/button'
 import {
@@ -102,6 +103,14 @@ export function AddSeatDialog({
             Shows next to your name on the tile (e.g. &ldquo;Tony Lam ·
             Tabletop&rdquo;).
           </p>
+          {label.trim() && (
+            <div className="flex flex-col items-center gap-2 pt-2">
+              <p className="text-xs text-text-muted">Scan to open on another device</p>
+              <div className="rounded-lg bg-white p-3">
+                <QRCodeSVG value={buildUrl()} size={160} />
+              </div>
+            </div>
+          )}
         </div>
         <DialogFooter className="flex-col gap-2 sm:flex-row">
           <Button variant="outline" onClick={() => setOpen(false)}>

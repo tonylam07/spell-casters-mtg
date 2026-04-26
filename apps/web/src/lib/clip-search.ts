@@ -365,7 +365,15 @@ export async function loadEmbeddingsAndMetaFromPackage() {
         )
       }
 
-      meta = metaObj.records
+      // Normalize snake_case field names produced by the card-db-builder pipeline.
+      // The blob-storage meta.json uses scryfall_id but our CardMeta type uses scryfallId.
+      meta = metaObj.records.map((r) => {
+        const rec = r as CardMeta & { scryfall_id?: string }
+        if (rec.scryfall_id && !rec.scryfallId) {
+          rec.scryfallId = rec.scryfall_id
+        }
+        return rec
+      })
 
       // Update embedding dimension from metadata
       D = metaObj.shape[1]

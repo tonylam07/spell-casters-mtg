@@ -111,14 +111,13 @@ export const LocalVideoCard = memo(function LocalVideoCard({
   // Card-query context: lets a click on the live tile trigger CLIP recognition
   // against whatever the detector last cropped (independent of the auto-loop).
   const cardQuery = useCardQueryContext()
+  // On click: reset consensus so the next auto-scan crops give a fresh result.
+  // The native canvas click handler in setupCardDetector.ts does the actual
+  // detect → crop → onCrop(canvas) → query pipeline; firing query here too
+  // would send a stale canvas before the fresh crop arrives.
   const handleIdentifyClick = useCallback(() => {
-    const canvas = getCroppedCanvas()
-    if (!canvas) return
-    // Reset consensus so the picker reflects only the fresh sequence of
-    // detections triggered by this click, not stale frames from a prior card.
     cardQuery.resetConsensus()
-    void cardQuery.query(canvas)
-  }, [cardQuery, getCroppedCanvas])
+  }, [cardQuery])
 
   // Tracked cards (Convex live query, owner-gated mutations)
   const { cards, trackCard, untrackCard, bump } = useTrackedCards(roomId ?? '')

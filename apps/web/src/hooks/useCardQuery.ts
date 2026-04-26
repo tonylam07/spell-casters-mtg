@@ -595,13 +595,26 @@ export function useCardQuery(roomId: string): UseCardQueryReturn {
 
         // Use the consensus top if higher than the single-frame best, else
         // fall back to the single-frame top1.
+        // When using consensus, enrich with image_url/card_url from the metadata
+        // index (the ClipResult only carries name/set/scryfallId/score).
         const finalResult: CardQueryResult = consensusTop
-          ? {
-              name: consensusTop.card.name,
-              set: consensusTop.card.set,
-              score: consensusTop.score,
-              scryfallId: consensusTop.card.scryfallId,
-            }
+          ? (() => {
+              const allMeta = getCardMetadata()
+              const fullMeta = allMeta?.find(
+                (m) =>
+                  (m.scryfallId && m.scryfallId === consensusTop.card.scryfallId) ||
+                  (m.name === consensusTop.card.name && m.set === consensusTop.card.set),
+              )
+              return {
+                name: consensusTop.card.name,
+                set: consensusTop.card.set,
+                score: consensusTop.score,
+                scryfallId: consensusTop.card.scryfallId,
+                image_url: fullMeta?.image_url,
+                card_url: fullMeta?.card_url,
+                scryfall_uri: fullMeta?.scryfall_uri,
+              }
+            })()
           : bestResult
 
         if (ocrResult.text) {
