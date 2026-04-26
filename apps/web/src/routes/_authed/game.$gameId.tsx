@@ -45,8 +45,8 @@ const gameSearchSchema = z.object({
     .describe('Show a synthetic test stream in an empty slot for development'),
   /** When set, this tab joins as an additional seat with this label */
   seatLabel: z.string().optional(),
-  /** "1" when this tab is intentionally a duplicate seat (paired w/ seatLabel) */
-  intentional: z.string().optional(),
+  /** "1" when this tab is intentionally a duplicate seat (coerce: TanStack Router JSON-parses numbers) */
+  intentional: z.coerce.string().optional(),
 })
 
 /**

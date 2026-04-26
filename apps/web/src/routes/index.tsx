@@ -16,8 +16,8 @@ const searchSchema = z.object({
   join: z.string().optional(),
   /** Optional label for additional seats (carried through to the game route) */
   seatLabel: z.string().optional(),
-  /** "1" when this tab is intentionally a duplicate seat */
-  intentional: z.string().optional(),
+  /** "1" when this tab is intentionally a duplicate seat (coerce: TanStack Router JSON-parses numbers) */
+  intentional: z.coerce.string().optional(),
 })
 
 export const Route = createFileRoute('/')({
