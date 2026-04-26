@@ -71,9 +71,9 @@ export function AddSeatDialog({
         <DialogHeader>
           <DialogTitle>Add another camera</DialogTitle>
           <DialogDescription>
-            Opens a new tab as a second seat for this room. Useful for
-            adding a tabletop view alongside your selfie cam — life,
-            poison, and counters stay synced between your seats.
+            Opens a new tab as a second seat for this room. Useful for adding a
+            tabletop view alongside your selfie cam — life, poison, and counters
+            stay synced between your seats.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
