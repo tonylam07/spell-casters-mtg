@@ -6,7 +6,7 @@
  * 2. Leave this tab and keep the other session
  */
 
-import { AlertTriangle, ArrowRightLeft, Home } from 'lucide-react'
+import { AlertTriangle, ArrowRightLeft, Camera, Home } from 'lucide-react'
 
 import {
   Dialog,
@@ -20,12 +20,15 @@ interface DuplicateSessionDialogProps {
   open: boolean
   onTransfer: () => void
   onClose: () => void
+  /** Join this tab as an additional linked seat (e.g. tabletop camera from mobile) */
+  onJoinAsTabletop?: () => void
 }
 
 export function DuplicateSessionDialog({
   open,
   onTransfer,
   onClose,
+  onJoinAsTabletop,
 }: DuplicateSessionDialogProps) {
   return (
     <Dialog open={open} onOpenChange={() => {}}>
@@ -64,6 +67,27 @@ export function DuplicateSessionDialog({
               </div>
             </div>
           </button>
+
+          {onJoinAsTabletop && (
+            <button
+              onClick={onJoinAsTabletop}
+              className="group p-4 w-full cursor-pointer rounded-lg border border-emerald-500/30 bg-surface-0/30 text-left transition-all hover:border-emerald-500/60 hover:bg-surface-1/40 focus:ring-2 focus:ring-emerald-500/50 focus:outline-none"
+            >
+              <div className="gap-3 flex items-start">
+                <div className="h-10 w-10 flex shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 transition-colors group-hover:bg-emerald-500/30">
+                  <Camera className="h-5 w-5 text-emerald-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-emerald-400">
+                    Join as tabletop camera
+                  </p>
+                  <p className="mt-0.5 text-sm text-text-muted">
+                    Add this device as a second camera — both stay connected.
+                  </p>
+                </div>
+              </div>
+            </button>
+          )}
 
           <button
             onClick={onClose}

@@ -61,9 +61,14 @@ export function CardPreview({ onClose }: CardPreviewProps) {
 
   const lowConfidence = isLowConfidence(displayResult.score)
 
+  // Build preview URL: prefer explicit URLs, fall back to Scryfall API from scryfallId.
+  // card-metadata.json only stores name/set/scryfallId — image_url/card_url are absent.
   const cardImage =
     displayResult.card_url ||
-    displayResult.image_url?.replace('/art_crop/', '/normal/')
+    displayResult.image_url?.replace('/art_crop/', '/normal/') ||
+    (displayResult.scryfallId
+      ? `https://api.scryfall.com/cards/${displayResult.scryfallId}?format=image&version=normal`
+      : undefined)
 
   return (
     <>

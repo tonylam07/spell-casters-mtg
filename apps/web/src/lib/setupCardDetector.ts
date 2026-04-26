@@ -578,8 +578,10 @@ export async function setupCardDetector(args: {
     try {
       // Pick highest-confidence card and use its center as the crop target
       const best = [...detectedCards].sort((a, b) => b.score - a.score)[0]
-      // Skip low-confidence detections to avoid triggering CLIP on background noise
-      if (!best || best.score < 0.5) return
+      // Skip low-confidence detections to avoid triggering CLIP on background noise.
+      // OpenCV scores are weighted sums of area + aspectRatio + edgeSupport (max ~3.6).
+      // A score of 2.0 matches roiQualityThreshold — below that is background noise.
+      if (!best || best.score < 2.0) return
 
       const frameWidth = ctx.videoEl.videoWidth || ctx.overlayEl.width
       const frameHeight = ctx.videoEl.videoHeight || ctx.overlayEl.height

@@ -187,6 +187,17 @@ function GameRoomContent({
     }
   }
 
+  // Handle "Join as tabletop camera" — reload with intentional=1 so this tab
+  // joins as a linked seat without kicking the existing desktop session.
+  const handleJoinAsTabletop = useCallback(() => {
+    const url = new URL(window.location.href)
+    url.searchParams.set('intentional', '1')
+    if (!url.searchParams.has('seatLabel')) {
+      url.searchParams.set('seatLabel', 'Tabletop')
+    }
+    window.location.href = url.toString()
+  }, [])
+
   // Handle closing this tab (user wants to keep other session)
   const handleCloseDuplicateTab = async () => {
     setDuplicateDialogDismissed(true)
@@ -263,6 +274,7 @@ function GameRoomContent({
         open={showDuplicateDialog}
         onTransfer={handleTransferSession}
         onClose={handleCloseDuplicateTab}
+        onJoinAsTabletop={handleJoinAsTabletop}
       />
 
       {/* Leave Confirmation Dialog */}
