@@ -14,6 +14,10 @@ const searchSchema = z.object({
   error: z.string().optional(),
   /** Workaround for /game/{id} SSR 500 — share links use /?join=ROOMID and we redirect client-side */
   join: z.string().optional(),
+  /** Optional label for additional seats (carried through to the game route) */
+  seatLabel: z.string().optional(),
+  /** "1" when this tab is intentionally a duplicate seat */
+  intentional: z.string().optional(),
 })
 
 export const Route = createFileRoute('/')({
@@ -27,7 +31,7 @@ export const Route = createFileRoute('/')({
 })
 
 function LandingPageContent() {
-  const { error, join } = Route.useSearch()
+  const { error, join, seatLabel, intentional } = Route.useSearch()
   const navigate = useNavigate()
   const {
     user,
@@ -42,14 +46,18 @@ function LandingPageContent() {
   // post-auth redirect lands them in the room.
   useEffect(() => {
     if (!join) return
-    const target = `/game/${join}`
+    const params = new URLSearchParams()
+    if (seatLabel) params.set('seatLabel', seatLabel)
+    if (intentional === '1') params.set('intentional', '1')
+    const qs = params.toString()
+    const target = `/game/${join}${qs ? `?${qs}` : ''}`
     if (isAuthLoading) return
     if (!user) {
       window.sessionStorage.setItem(AUTH_RETURN_TO_KEY, target)
       return
     }
-    navigate({ to: target, search: {} })
-  }, [join, user, isAuthLoading, navigate])
+    navigate({ to: target })
+  }, [join, seatLabel, intentional, user, isAuthLoading, navigate])
 
   // After authentication completes, redirect to the stored return URL (e.g., game room)
   useEffect(() => {

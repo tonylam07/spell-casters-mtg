@@ -70,6 +70,10 @@ const PresenceContext = createContext<PresenceContextValue | null>(null)
 interface PresenceProviderProps {
   roomId: string
   children: React.ReactNode
+  /** Optional label for additional seats ("Tabletop", "Selfie") */
+  seatLabel?: string
+  /** True when this tab is intentionally joining as a second seat */
+  intentionalDuplicate?: boolean
   /** Called when a duplicate session is detected */
   onDuplicateSession?: (existingSessionId: string) => void
   /** Called when this session should be closed (transfer happened in another tab) */
@@ -79,6 +83,8 @@ interface PresenceProviderProps {
 export function PresenceProvider({
   roomId,
   children,
+  seatLabel,
+  intentionalDuplicate,
   onDuplicateSession,
   onSessionTransferred,
 }: PresenceProviderProps) {
@@ -125,6 +131,8 @@ export function PresenceProvider({
     userId,
     username,
     avatar,
+    seatLabel,
+    intentionalDuplicate,
     enabled: isConnected,
     onKicked: handleKicked,
     onBanned: handleBanned,

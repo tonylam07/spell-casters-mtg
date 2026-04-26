@@ -26,6 +26,10 @@ interface UseConvexPresenceProps {
   username: string
   avatar?: string | null
   enabled?: boolean
+  /** Optional label for additional seats ("Tabletop", "Selfie") */
+  seatLabel?: string
+  /** True when this tab is intentionally joining as a second seat */
+  intentionalDuplicate?: boolean
   /** Called when kicked (temporary - can rejoin) */
   onKicked?: () => void
   /** Called when banned (permanent - cannot rejoin) */
@@ -101,6 +105,8 @@ export function useConvexPresence({
   username,
   avatar,
   enabled = true,
+  seatLabel,
+  intentionalDuplicate,
   onKicked,
   onBanned,
   onDuplicateSession,
@@ -260,6 +266,8 @@ export function useConvexPresence({
         avatar: avatar ?? undefined,
         audioEnabled: true,
         videoEnabled: true,
+        ...(intentionalDuplicate ? { intentionalDuplicate: true } : {}),
+        ...(seatLabel ? { seatLabel } : {}),
       })
       .then(() => {
         console.log('[ConvexPresence] Successfully joined room')
@@ -350,6 +358,8 @@ export function useConvexPresence({
         commanders: player.commanders ?? [],
         commanderDamage: player.commanderDamage ?? {},
         lastSeenAt: player.lastSeenAt,
+        seatLabel: player.seatLabel,
+        isLinkedSeat: player.isLinkedSeat,
       }))
       .sort((a: Participant, b: Participant) => a.joinedAt - b.joinedAt)
   }, [allSessionsData])
