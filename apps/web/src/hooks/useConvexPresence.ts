@@ -384,8 +384,10 @@ export function useConvexPresence({
 
   const hasDuplicateSession = duplicateSessions.length > 0
 
-  // Notify about duplicate session when detected
+  // Notify about duplicate session when detected — suppressed for intentional
+  // additional seats (e.g. "Add Camera" tabletop view) so they join silently.
   useEffect(() => {
+    if (intentionalDuplicate) return
     if (hasDuplicateSession && onDuplicateSession && duplicateSessions[0]) {
       console.log(
         '[ConvexPresence] Duplicate session detected:',
@@ -393,7 +395,7 @@ export function useConvexPresence({
       )
       onDuplicateSession(duplicateSessions[0].sessionId)
     }
-  }, [hasDuplicateSession, duplicateSessions, onDuplicateSession])
+  }, [hasDuplicateSession, duplicateSessions, onDuplicateSession, intentionalDuplicate])
 
   // Get owner from room record (not first participant)
   const ownerId = roomOwnerId ?? null
