@@ -282,7 +282,14 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
         )}
 
         <PlayerNameBadge position="bottom-center">
-          <span className="text-white">{playerName}</span>
+          <span className="text-white">
+            {playerName}
+            {participantData.seatLabel ? (
+              <span className="ml-1 text-text-muted">
+                · {participantData.seatLabel}
+              </span>
+            ) : null}
+          </span>
         </PlayerNameBadge>
 
         {/* Tracked-card tray for this remote player (read-only) */}

@@ -43,6 +43,10 @@ const gameSearchSchema = z.object({
     .boolean()
     .default(defaultValues.testStream)
     .describe('Show a synthetic test stream in an empty slot for development'),
+  /** When set, this tab joins as an additional seat with this label */
+  seatLabel: z.string().optional(),
+  /** "1" when this tab is intentionally a duplicate seat (paired w/ seatLabel) */
+  intentional: z.string().optional(),
 })
 
 /**
@@ -165,7 +169,8 @@ export const Route = createFileRoute('/_authed/game/$gameId')({
 function GameRoomPage() {
   const { gameId } = Route.useParams()
   const { roomNotFound } = Route.useLoaderData()
-  const { detector, usePerspectiveWarp, testStream } = Route.useSearch()
+  const { detector, usePerspectiveWarp, testStream, seatLabel, intentional } =
+    Route.useSearch()
   const navigate = useNavigate()
   const { user } = useAuth()
 
@@ -252,6 +257,8 @@ function GameRoomPage() {
           detectorType={detector}
           usePerspectiveWarp={usePerspectiveWarp}
           showTestStream={testStream}
+          seatLabel={seatLabel}
+          intentionalDuplicate={intentional === '1'}
         />
       </Suspense>
     </ErrorBoundary>
