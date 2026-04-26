@@ -91,7 +91,6 @@ export function createDetector(
   // Create detector instance based on type
   switch (type) {
     case 'opencv':
-      // OpenCV is click-only mode - returns empty detections for continuous detection
       return new OpenCVDetector(finalConfig)
 
     case 'detr':

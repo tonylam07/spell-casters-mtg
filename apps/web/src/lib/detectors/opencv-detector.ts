@@ -389,6 +389,12 @@ export class OpenCVDetector implements CardDetector {
       `[OpenCV] Running adaptive detection with ${roiPasses.length} ROI passes`,
     )
 
+    let bestDetections: typeof roiPasses extends Array<infer _> ? Array<{
+      box: { xmin: number; ymin: number; xmax: number; ymax: number }
+      score: number
+      polygon: Array<{ x: number; y: number }>
+    }> : never = []
+
     for (let passIdx = 0; passIdx < roiPasses.length; passIdx++) {
       const roi = roiPasses[passIdx]
       if (!roi) continue
@@ -412,7 +418,12 @@ export class OpenCVDetector implements CardDetector {
           `[OpenCV] Best detection score: ${bestScore.toFixed(3)}, quality threshold: ${this.config.roiQualityThreshold}`,
         )
 
-        // Stop if we found a high-quality detection
+        // Keep the best result so far in case no pass hits the quality bar
+        if (bestDetections.length === 0 || bestScore > (bestDetections[0]?.score ?? 0)) {
+          bestDetections = detections
+        }
+
+        // Stop early if we found a high-quality detection
         if (bestScore >= this.config.roiQualityThreshold) {
           console.log(
             `[OpenCV] Quality threshold met, stopping ROI expansion at pass ${passIdx + 1}`,
@@ -427,8 +438,10 @@ export class OpenCVDetector implements CardDetector {
       }
     }
 
-    // Return best detections from all passes
-    return []
+    // Return whatever we found, even if no pass cleared the quality bar.
+    // For click-based detection this is a fallback; for auto-scan (single
+    // full-canvas pass) this is the primary return path.
+    return bestDetections
   }
 
   private detectInRoi(
