@@ -53,6 +53,10 @@ export async function loadOpenCV(): Promise<CV> {
         (module) => module.default,
       )
       cachedCv = cv // Cache the cv object for isOpenCVLoaded() and getOpenCVVersion()
+      // OpenCVDetector.detect() checks window.cv directly (UMD global pattern).
+      // The npm module import goes through the CommonJS path and does not set
+      // window.cv, so we assign it here for compatibility.
+      ;(window as unknown as Record<string, unknown>).cv = cv
       console.log('[OpenCV] Runtime initialized successfully')
       console.log('[OpenCV] Build info:', cv.getBuildInformation())
       return cv
