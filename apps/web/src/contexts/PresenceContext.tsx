@@ -204,6 +204,7 @@ export function PresenceProvider({
       presence.sessionId,
       presence.hasDuplicateSession,
       presence.roomSeatCount,
+      intentionalDuplicate,
       isConnected,
       disconnectReason,
       connect,

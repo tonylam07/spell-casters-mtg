@@ -161,9 +161,9 @@ export const LocalVideoCard = memo(function LocalVideoCard({
       )
     }
     return (
-      <ContextMenuItem disabled>
+      <ContextMenuItem onSelect={handleIdentifyClick}>
         <Bookmark className="mr-2 h-4 w-4" />
-        No card recognized — click tile first
+        Scan for card
       </ContextMenuItem>
     )
   })()

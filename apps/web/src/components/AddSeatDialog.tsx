@@ -9,7 +9,7 @@
  */
 import type { ReactNode } from 'react'
 import { useState } from 'react'
-import { Camera } from 'lucide-react'
+import { Camera, Check, Copy } from 'lucide-react'
 
 import { Button } from '@repo/ui/components/button'
 import {
@@ -40,16 +40,28 @@ export function AddSeatDialog({
 }: AddSeatDialogProps) {
   const [open, setOpen] = useState(false)
   const [label, setLabel] = useState('Tabletop')
+  const [copied, setCopied] = useState(false)
 
-  const submit = () => {
+  const buildUrl = () => {
     const trimmed = label.trim().slice(0, MAX_LABEL_CHARS)
-    if (!trimmed) return
     const url = new URL('/', window.location.origin)
     url.searchParams.set('join', roomId)
     url.searchParams.set('seatLabel', trimmed)
     url.searchParams.set('intentional', '1')
-    window.open(url.toString(), '_blank', 'noopener')
+    return url.toString()
+  }
+
+  const submit = () => {
+    if (!label.trim()) return
+    window.open(buildUrl(), '_blank', 'noopener')
     setOpen(false)
+  }
+
+  const copyLink = async () => {
+    if (!label.trim()) return
+    await navigator.clipboard.writeText(buildUrl())
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
@@ -91,9 +103,21 @@ export function AddSeatDialog({
             Tabletop&rdquo;).
           </p>
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-col gap-2 sm:flex-row">
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
+          </Button>
+          <Button
+            variant="outline"
+            onClick={copyLink}
+            disabled={!label.trim()}
+          >
+            {copied ? (
+              <Check className="mr-2 h-4 w-4" />
+            ) : (
+              <Copy className="mr-2 h-4 w-4" />
+            )}
+            {copied ? 'Copied!' : 'Copy link'}
           </Button>
           <Button onClick={submit} disabled={!label.trim()}>
             Open in new tab

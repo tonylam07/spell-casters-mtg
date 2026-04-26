@@ -375,10 +375,12 @@ export function useConvexPresence({
     return Array.from(seen.values())
   }, [participants])
 
-  // Detect duplicate sessions (same userId, different sessionId)
+  // Detect duplicate sessions (same userId, different sessionId, not a linked seat)
+  // Linked seats are intentional additional cameras — exclude them so the
+  // original tab never sees its own Add-Camera seat as a "duplicate session".
   const duplicateSessions = useMemo(() => {
     return participants.filter(
-      (p) => p.id === userId && p.sessionId !== sessionId,
+      (p) => p.id === userId && p.sessionId !== sessionId && !p.isLinkedSeat,
     )
   }, [participants, userId, sessionId])
 
