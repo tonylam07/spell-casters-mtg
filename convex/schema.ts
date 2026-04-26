@@ -68,6 +68,10 @@ export default defineSchema({
     energy: v.optional(v.number()),
     /** Player's current experience counters (Commander) */
     experience: v.optional(v.number()),
+    /** Optional label for additional seats — "Tabletop", "Selfie", etc. */
+    seatLabel: v.optional(v.string()),
+    /** True for any seat after the user's first (primary) seat in this room */
+    isLinkedSeat: v.optional(v.boolean()),
     /** Player's commander list (1-2 entries, owned by the player) */
     commanders: v.array(
       v.object({
