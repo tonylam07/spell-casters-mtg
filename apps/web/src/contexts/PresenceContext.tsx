@@ -182,7 +182,7 @@ export function PresenceProvider({
       ownerId: presence.ownerId,
       isOwner: presence.isOwner,
       sessionId: presence.sessionId,
-      hasDuplicateSession: presence.hasDuplicateSession,
+      hasDuplicateSession: intentionalDuplicate ? false : presence.hasDuplicateSession,
       roomSeatCount: presence.roomSeatCount,
       isConnected,
       disconnectReason,

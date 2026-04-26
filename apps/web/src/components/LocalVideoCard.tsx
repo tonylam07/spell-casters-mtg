@@ -128,6 +128,7 @@ export const LocalVideoCard = memo(function LocalVideoCard({
   )
   const lastResult = cardQuery.state.result
   const isQuerying = cardQuery.state.status === 'querying'
+  const queryStatus = cardQuery.state.status
   const trackTopSlot = (() => {
     if (lastResult?.scryfallId) {
       return (
@@ -273,6 +274,39 @@ export const LocalVideoCard = memo(function LocalVideoCard({
         </VideoOrientationContextMenu>
       ) : (
         <VideoDisabledPlaceholder />
+      )}
+
+      {/* Card recognition status badge */}
+      {enableCardDetection && (
+        <div className="pointer-events-none absolute bottom-10 left-0 right-0 z-20 flex justify-center px-2">
+          {isQuerying && (
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-blue-400/40 bg-blue-500/20 px-2.5 py-1 text-xs font-medium text-blue-200 shadow backdrop-blur-sm">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Identifying…
+            </div>
+          )}
+          {!isQuerying && queryStatus === 'success' && lastResult && (
+            <div className="inline-flex max-w-[90%] items-center gap-1.5 truncate rounded-full border border-emerald-400/40 bg-emerald-500/20 px-2.5 py-1 text-xs font-medium text-emerald-200 shadow backdrop-blur-sm">
+              <span className="truncate">✓ {lastResult.name}</span>
+              {lastResult.confidence !== undefined && (
+                <span className="shrink-0 opacity-70">
+                  {Math.round(lastResult.confidence * 100)}%
+                </span>
+              )}
+            </div>
+          )}
+          {!isQuerying && queryStatus === 'error' && (
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-red-400/40 bg-red-500/20 px-2.5 py-1 text-xs font-medium text-red-200 shadow backdrop-blur-sm">
+              Card not recognized
+            </div>
+          )}
+          {!isQuerying && queryStatus === 'idle' && (
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/30 px-2.5 py-1 text-xs text-white/50 shadow backdrop-blur-sm">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-400" />
+              Scanning
+            </div>
+          )}
+        </div>
       )}
 
       {/* No-mic banner — surfaces gracefully when mic is denied/missing */}
