@@ -265,7 +265,8 @@ function SidebarContent({
   onResetGame,
 }: GameRoomSidebarProps) {
   // Get game room participants from context (already deduplicated)
-  const { uniqueParticipants, roomSeatCount, setRoomSeatCount } = usePresence()
+  const { uniqueParticipants, participants, roomSeatCount, setRoomSeatCount } =
+    usePresence()
   const { user } = useAuth()
   const commanderDamageDialog = useCommanderDamageDialog()
   const {
@@ -361,6 +362,11 @@ function SidebarContent({
     [roomSeatCount, uniqueParticipants.length, setRoomSeatCount],
   )
 
+  const ownSeatCount = useMemo(
+    () => participants.filter((p) => p.id === user?.id).length,
+    [participants, user?.id],
+  )
+
   const sidebarContent = (
     <>
       <div className="flex-shrink-0">
@@ -379,6 +385,8 @@ function SidebarContent({
           onChangeSeatCount={isLobbyOwner ? handleChangeSeatCount : undefined}
           onCopyShareLink={onCopyShareLink}
           onResetGame={onResetGame}
+          roomId={roomId}
+          ownSeatCount={ownSeatCount}
         />
       </div>
       <div className="flex-shrink-0">

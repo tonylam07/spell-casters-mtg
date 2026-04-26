@@ -41,6 +41,7 @@ import {
   TooltipTrigger,
 } from '@repo/ui/components/tooltip'
 
+import { AddSeatDialog } from './AddSeatDialog'
 import { SidebarCard } from './GameRoomSidebar'
 
 interface Player {
@@ -70,6 +71,10 @@ interface PlayerListProps {
   onCopyShareLink?: () => void
   /** Called when user wants to reset game state (life, poison, commanders) */
   onResetGame?: () => void
+  /** Room id (used by AddSeatDialog for the additional-camera URL) */
+  roomId?: string
+  /** Number of seats the local user already occupies in this room (1 or 2) */
+  ownSeatCount?: number
 }
 
 type RemovalAction = 'kick' | 'ban'
@@ -89,6 +94,8 @@ export function PlayerList({
   onChangeSeatCount,
   onCopyShareLink,
   onResetGame,
+  roomId,
+  ownSeatCount = 1,
 }: PlayerListProps) {
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
@@ -471,6 +478,13 @@ export function PlayerList({
             )
           })}
         </div>
+
+        {/* Add another camera (selfie + tabletop dual-cam) */}
+        {roomId ? (
+          <div className="px-2 pb-2">
+            <AddSeatDialog roomId={roomId} disabled={ownSeatCount >= 2} />
+          </div>
+        ) : null}
 
         {/* Confirmation Dialog */}
         <AlertDialog

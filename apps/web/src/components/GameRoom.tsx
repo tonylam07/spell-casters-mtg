@@ -40,6 +40,10 @@ interface GameRoomProps {
   detectorType?: DetectorType
   usePerspectiveWarp?: boolean
   showTestStream?: boolean
+  /** Optional label for additional seats ("Tabletop", "Selfie") */
+  seatLabel?: string
+  /** True when this tab is intentionally joining as a second seat */
+  intentionalDuplicate?: boolean
 }
 
 function GameRoomContent({
@@ -453,6 +457,8 @@ function GameRoomWithPresence({
   detectorType,
   usePerspectiveWarp,
   showTestStream,
+  seatLabel,
+  intentionalDuplicate,
 }: Omit<GameRoomProps, 'playerName'>) {
   const handleDuplicateSession = useCallback(() => {
     console.log('[GameRoom] Duplicate session detected, showing dialog')
@@ -473,6 +479,8 @@ function GameRoomWithPresence({
   return (
     <PresenceProvider
       roomId={roomId}
+      seatLabel={seatLabel}
+      intentionalDuplicate={intentionalDuplicate}
       onDuplicateSession={handleDuplicateSession}
       onSessionTransferred={handleSessionTransferred}
     >
