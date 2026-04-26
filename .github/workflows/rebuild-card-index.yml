@@ -24,12 +24,13 @@ on:
         default: 'standard'
         type: choice
         options:
-          - standard
-          - modern
-          - pioneer
-          - legacy
-          - vintage
+          - all
           - commander
+          - vintage
+          - legacy
+          - pioneer
+          - modern
+          - standard
           - pauper
 
 permissions:

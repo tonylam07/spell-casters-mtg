@@ -21,6 +21,7 @@ export const SUPPORTED_FORMATS = [
   'vintage',
   'commander',
   'pauper',
+  'all',
 ] as const;
 
 export type SupportedFormat = (typeof SUPPORTED_FORMATS)[number];
@@ -38,13 +39,7 @@ const HEADERS = {
 // distinct printings (showcase, borderless, promos, multiple set printings)
 // each contribute their own embedding. Format-legality filter applies after
 // download.
-export async function fetchLegalCards(format: string): Promise<ScryfallCard[]> {
-  if (!(SUPPORTED_FORMATS as readonly string[]).includes(format)) {
-    throw new Error(
-      `Unsupported format: "${format}". Supported: ${SUPPORTED_FORMATS.join(', ')}`,
-    );
-  }
-
+async function downloadBulk(): Promise<ScryfallCard[]> {
   console.log('  fetching bulk-data manifest...');
   const manifestRes = await fetch('https://api.scryfall.com/bulk-data', { headers: HEADERS });
   if (!manifestRes.ok) throw new Error(`Bulk manifest error: ${manifestRes.status}`);
@@ -57,7 +52,23 @@ export async function fetchLegalCards(format: string): Promise<ScryfallCard[]> {
   console.log(`  downloading unique_artwork bulk (${sizeMB} MB)...`);
   const bulkRes = await fetch(bulk.download_uri, { headers: HEADERS });
   if (!bulkRes.ok) throw new Error(`Bulk download error: ${bulkRes.status}`);
-  const allCards = await bulkRes.json() as ScryfallCard[];
+  return bulkRes.json() as Promise<ScryfallCard[]>;
+}
+
+export async function fetchLegalCards(format: string): Promise<ScryfallCard[]> {
+  if (!(SUPPORTED_FORMATS as readonly string[]).includes(format)) {
+    throw new Error(
+      `Unsupported format: "${format}". Supported: ${SUPPORTED_FORMATS.join(', ')}`,
+    );
+  }
+
+  const allCards = await downloadBulk();
+
+  // 'all' skips legality filtering — includes every unique artwork on Scryfall
+  if (format === 'all') {
+    console.log(`  ${allCards.length} total printings (no format filter)`);
+    return allCards;
+  }
 
   const legal = allCards.filter(c => c.legalities?.[format] === 'legal');
   console.log(`  ${allCards.length} total printings, ${legal.length} ${format}-legal`);

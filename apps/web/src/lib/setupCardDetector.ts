@@ -60,6 +60,9 @@ function logDebugBlobUrl(
 // Detection State
 // ============================================================================
 
+const AUTO_SCAN_INTERVAL_MS = 700 // Detection poll rate
+const AUTO_CROP_COOLDOWN_MS = 2500 // Min time between auto-recognition fires
+
 let detector: CardDetector | null = null
 let currentDetectorType: DetectorType | undefined = undefined
 let detectionInterval: number | null = null
@@ -273,8 +276,22 @@ async function detectCards(
 
     detectedCards = result.cards
 
-    // Clear overlay - no detection boxes shown
+    // Clear overlay then draw bounding boxes for each detected card
     ctx.overlayCtx.clearRect(0, 0, ctx.overlayEl.width, ctx.overlayEl.height)
+    if (detectedCards.length > 0) {
+      const ow = ctx.overlayEl.width
+      const oh = ctx.overlayEl.height
+      for (const card of detectedCards) {
+        const x = card.box.xmin * ow
+        const y = card.box.ymin * oh
+        const bw = (card.box.xmax - card.box.xmin) * ow
+        const bh = (card.box.ymax - card.box.ymin) * oh
+        const alpha = Math.min(0.4 + card.score * 0.6, 1)
+        ctx.overlayCtx.strokeStyle = `rgba(0, 200, 255, ${alpha})`
+        ctx.overlayCtx.lineWidth = 2
+        ctx.overlayCtx.strokeRect(x, y, bw, bh)
+      }
+    }
   } catch (err) {
     // Log detection errors instead of silently swallowing them
     console.error('[detectCards] Detection error:', err)
@@ -535,6 +552,48 @@ export async function setupCardDetector(args: {
   } catch {
     console.error('[Detector] Failed to initialize')
   }
+
+  // ── Auto-scan loop ─────────────────────────────────────────────────────────
+  // Continuously detect cards without requiring a click — mirrors TCGAutomate.
+  // Detection runs every AUTO_SCAN_INTERVAL_MS; recognition (CLIP query via
+  // onCrop) fires at most once every AUTO_CROP_COOLDOWN_MS to avoid spamming.
+  let lastAutoCropTime = 0
+
+  detectionInterval = window.setInterval(async () => {
+    // Skip if video not ready yet
+    if (ctx.videoEl.readyState < 2) return
+
+    await detectCards(ctx)
+
+    if (detectedCards.length === 0) return
+
+    const now = performance.now()
+    const globalState = getGlobalClickState()
+    if (now - lastAutoCropTime < AUTO_CROP_COOLDOWN_MS) return
+    if (globalState.isProcessing) return
+
+    lastAutoCropTime = now
+    globalState.isProcessing = true
+
+    try {
+      // Pick highest-confidence card and use its center as the crop target
+      const best = [...detectedCards].sort((a, b) => b.score - a.score)[0]
+      if (!best) return
+
+      const frameWidth = ctx.videoEl.videoWidth || ctx.overlayEl.width
+      const frameHeight = ctx.videoEl.videoHeight || ctx.overlayEl.height
+      const cx = ((best.box.xmin + best.box.xmax) / 2) * frameWidth
+      const cy = ((best.box.ymin + best.box.ymax) / 2) * frameHeight
+
+      const ok = await cropCardAt(ctx, cx, cy)
+      if (ok && typeof args.onCrop === 'function') {
+        args.onCrop(ctx.croppedCanvas)
+      }
+    } finally {
+      globalState.isProcessing = false
+    }
+  }, AUTO_SCAN_INTERVAL_MS) as unknown as number
+  // ──────────────────────────────────────────────────────────────────────────
 
   // Store click handler reference for cleanup
   let instanceClickHandler: ((evt: MouseEvent) => void) | null = null
