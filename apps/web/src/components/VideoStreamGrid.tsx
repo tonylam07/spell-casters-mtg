@@ -9,10 +9,13 @@ import {
   useRef,
   useState,
 } from 'react'
+import { useCardQueryContext } from '@/contexts/CardQueryContext'
 import { useMediaStreams } from '@/contexts/MediaStreamContext'
 import { usePresence } from '@/contexts/PresenceContext'
 import { useCardDetector } from '@/hooks/useCardDetector'
 import { useConvexWebRTC } from '@/hooks/useConvexWebRTC'
+import { useTrackedCards } from '@/hooks/useTrackedCards'
+import { useVideoOrientation } from '@/hooks/useVideoOrientation'
 import { useVideoStreamAttachment } from '@/hooks/useVideoStreamAttachment'
 import {
   createSilentAudioStream,
@@ -48,6 +51,18 @@ import {
   PlayerNameBadge,
   VideoDisabledPlaceholder,
 } from './PlayerVideoCardParts'
+import { TrackedCardTray } from './TrackedCardTray'
+import { VideoOrientationContextMenu } from './VideoOrientationContextMenu'
+
+// Container that holds the video + detection overlay; rotation/mirror
+// transform is applied here so overlays stay aligned with the video.
+const ORIENTED_CONTAINER_BASE: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  zIndex: 0,
+  transformOrigin: 'center center',
+  transition: 'transform 150ms ease-out',
+}
 
 /**
  * Threshold for considering a player "online" (15 seconds)
@@ -114,15 +129,16 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
   const videoRef = useRef<HTMLVideoElement>(null)
 
   // Initialize card detector for this remote player's stream
-  const { overlayRef, croppedRef, fullResRef } = useCardDetector({
-    videoRef: videoRef,
-    enableCardDetection:
-      enableCardDetection && peerVideoEnabled && !!remoteStream,
-    detectorType,
-    usePerspectiveWarp,
-    onCrop: onCardCrop,
-    reinitializeTrigger: remoteStream ? 1 : 0,
-  })
+  const { overlayRef, croppedRef, fullResRef, getCroppedCanvas } =
+    useCardDetector({
+      videoRef: videoRef,
+      enableCardDetection:
+        enableCardDetection && peerVideoEnabled && !!remoteStream,
+      detectorType,
+      usePerspectiveWarp,
+      onCrop: onCardCrop,
+      reinitializeTrigger: remoteStream ? 1 : 0,
+    })
 
   // Combined ref handler - updates both local ref and shared map
   const handleVideoRef = (element: HTMLVideoElement | null) => {
@@ -186,6 +202,37 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
 
   const videoContainerRef = useRef<HTMLDivElement>(null)
 
+  // Per-tile rotation/mirror/zoom, keyed by participant id
+  const orientation = useVideoOrientation(`remote:${playerId}`)
+  const orientedContainerStyle = useMemo<React.CSSProperties>(
+    () => ({ ...ORIENTED_CONTAINER_BASE, transform: orientation.transform }),
+    [orientation.transform],
+  )
+
+  // Tracked cards for THIS remote player (read-only on their tile)
+  const { cards: allTrackedCards } = useTrackedCards(roomId)
+  const theirCards = useMemo(
+    () => allTrackedCards.filter((card) => card.ownerUserId === playerId),
+    [allTrackedCards, playerId],
+  )
+
+  // Click-to-identify: run CLIP recognition on whatever the detector last cropped
+  const cardQuery = useCardQueryContext()
+  const handleIdentifyClick = () => {
+    const canvas = getCroppedCanvas()
+    if (!canvas) return
+    cardQuery.resetConsensus()
+    void cardQuery.query(canvas)
+  }
+
+  // Shift+wheel to zoom this tile
+  const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    if (!event.shiftKey) return
+    event.preventDefault()
+    if (event.deltaY < 0) orientation.zoomIn()
+    else if (event.deltaY > 0) orientation.zoomOut()
+  }
+
   return (
     <Card
       className="flex h-full flex-col overflow-hidden border-surface-2 bg-surface-1"
@@ -195,30 +242,39 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
     >
       <div ref={videoContainerRef} className="min-h-0 bg-black relative flex-1">
         {peerVideoEnabled ? (
-          <>
-            {remoteStream && (
-              <video
-                data-testid="remote-player-video"
-                ref={handleVideoRef}
-                autoPlay
-                playsInline
-                muted={isMuted}
-                style={VIDEO_ELEMENT_STYLE}
-                onLoadedMetadata={handleLoadedMetadata}
-                onCanPlay={handleCanPlay}
-                onError={handleVideoError}
-              />
-            )}
-            {enableCardDetection && overlayRef && (
-              <CardDetectionOverlay overlayRef={overlayRef} />
-            )}
-            {enableCardDetection && croppedRef && (
-              <CroppedCanvas croppedRef={croppedRef} />
-            )}
-            {enableCardDetection && fullResRef && (
-              <FullResCanvas fullResRef={fullResRef} />
-            )}
-          </>
+          <VideoOrientationContextMenu orientation={orientation}>
+            <div
+              style={orientedContainerStyle}
+              onClick={handleIdentifyClick}
+              onWheel={handleWheel}
+              role="button"
+              tabIndex={-1}
+              aria-label="Click to identify card"
+            >
+              {remoteStream && (
+                <video
+                  data-testid="remote-player-video"
+                  ref={handleVideoRef}
+                  autoPlay
+                  playsInline
+                  muted={isMuted}
+                  style={VIDEO_ELEMENT_STYLE}
+                  onLoadedMetadata={handleLoadedMetadata}
+                  onCanPlay={handleCanPlay}
+                  onError={handleVideoError}
+                />
+              )}
+              {enableCardDetection && overlayRef && (
+                <CardDetectionOverlay overlayRef={overlayRef} />
+              )}
+              {enableCardDetection && croppedRef && (
+                <CroppedCanvas croppedRef={croppedRef} />
+              )}
+              {enableCardDetection && fullResRef && (
+                <FullResCanvas fullResRef={fullResRef} />
+              )}
+            </div>
+          </VideoOrientationContextMenu>
         ) : (
           <div data-testid="remote-player-video-off">
             <VideoDisabledPlaceholder />
@@ -226,8 +282,18 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
         )}
 
         <PlayerNameBadge position="bottom-center">
-          <span className="text-white">{playerName}</span>
+          <span className="text-white">
+            {playerName}
+            {participantData.seatLabel ? (
+              <span className="ml-1 text-text-muted">
+                · {participantData.seatLabel}
+              </span>
+            ) : null}
+          </span>
         </PlayerNameBadge>
+
+        {/* Tracked-card tray for this remote player (read-only) */}
+        <TrackedCardTray cards={theirCards} editable={false} />
 
         {localParticipant && (
           <>

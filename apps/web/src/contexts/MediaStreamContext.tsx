@@ -77,6 +77,8 @@ interface MediaStreamContextValue {
     needsPermissionDialog: boolean
     permissionsBlocked: boolean
     permissionsGranted: boolean
+    /** True iff a microphone permission was granted and a stream is usable */
+    microphoneAvailable: boolean
     recheckPermissions: () => Promise<void>
   }
 }
@@ -99,19 +101,27 @@ export function MediaStreamProvider({ children }: MediaStreamProviderProps) {
     !isCheckingPermissions &&
     (cameraPermission.shouldShowDialog || microphonePermission.shouldShowDialog)
 
+  // Camera blocked is still a hard fail (no point joining without video).
+  // Mic denied is acceptable — we just won't capture audio.
   const permissionsBlocked =
-    !isCheckingPermissions &&
-    (cameraPermission.browserState === 'denied' ||
-      microphonePermission.browserState === 'denied')
+    !isCheckingPermissions && cameraPermission.browserState === 'denied'
 
   const microphoneGranted =
     !isCheckingPermissions && microphonePermission.browserState === 'granted'
+  const microphoneAvailable = microphoneGranted
+  const microphoneOptedOut =
+    !isCheckingPermissions &&
+    (microphonePermission.browserState === 'denied' ||
+      microphonePermission.browserState === 'unknown')
+  // Mic is "resolved" once we know the user either granted, denied, or has
+  // no device — at that point we can proceed with media setup either way.
+  const microphoneResolved = microphoneGranted || microphoneOptedOut
   const cameraGrantedOrUnavailable =
     !isCheckingPermissions &&
     (cameraPermission.browserState === 'granted' ||
       cameraPermission.browserState === 'prompt')
 
-  const permissionsGranted = microphoneGranted && cameraGrantedOrUnavailable
+  const permissionsGranted = microphoneResolved && cameraGrantedOrUnavailable
 
   const mediaPreferences = useMediaPreferenceStore()
 
@@ -124,7 +134,9 @@ export function MediaStreamProvider({ children }: MediaStreamProviderProps) {
   const audioResult = useMediaDevice({
     kind: 'audioinput',
     selectedDeviceId: mediaPreferences.selectedAudioInputDeviceId,
-    enabled: permissionsGranted && mediaPreferences.audioEnabled,
+    // Only attempt audio acquisition when mic actually granted; otherwise
+    // navigator.getUserMedia would throw NotAllowedError and we'd loop.
+    enabled: microphoneAvailable && mediaPreferences.audioEnabled,
   })
 
   const audioOutputState = useAudioOutput({
@@ -139,11 +151,7 @@ export function MediaStreamProvider({ children }: MediaStreamProviderProps) {
     ) {
       mediaPreferences.setSelectedVideoDeviceId(nextDeviceId)
     }
-  }, [
-    videoResult.selectedDeviceId,
-    mediaPreferences.selectedVideoDeviceId,
-    mediaPreferences.setSelectedVideoDeviceId,
-  ])
+  }, [videoResult.selectedDeviceId, mediaPreferences])
 
   useEffect(() => {
     const nextDeviceId = audioResult.selectedDeviceId || null
@@ -153,11 +161,7 @@ export function MediaStreamProvider({ children }: MediaStreamProviderProps) {
     ) {
       mediaPreferences.setSelectedAudioInputDeviceId(nextDeviceId)
     }
-  }, [
-    audioResult.selectedDeviceId,
-    mediaPreferences.selectedAudioInputDeviceId,
-    mediaPreferences.setSelectedAudioInputDeviceId,
-  ])
+  }, [audioResult.selectedDeviceId, mediaPreferences])
 
   useEffect(() => {
     const currentDeviceId = audioOutputState.currentDeviceId || null
@@ -167,11 +171,7 @@ export function MediaStreamProvider({ children }: MediaStreamProviderProps) {
     ) {
       mediaPreferences.setSelectedAudioOutputDeviceId(currentDeviceId)
     }
-  }, [
-    audioOutputState.currentDeviceId,
-    mediaPreferences.selectedAudioOutputDeviceId,
-    mediaPreferences.setSelectedAudioOutputDeviceId,
-  ])
+  }, [audioOutputState.currentDeviceId, mediaPreferences])
 
   useEffect(() => {
     const desiredDeviceId =
@@ -183,22 +183,14 @@ export function MediaStreamProvider({ children }: MediaStreamProviderProps) {
     ) {
       void audioOutputState.setOutputDevice(desiredDeviceId).catch(() => {})
     }
-  }, [
-    mediaPreferences.selectedAudioOutputDeviceId,
-    audioOutputState.devices.length,
-    audioOutputState.currentDeviceId,
-    audioOutputState.setOutputDevice,
-  ])
+  }, [mediaPreferences, audioOutputState])
 
   const setSelectedAudioOutputDeviceId = useCallback(
     async (deviceId: string) => {
       mediaPreferences.setSelectedAudioOutputDeviceId(deviceId)
       await audioOutputState.setOutputDevice(deviceId)
     },
-    [
-      mediaPreferences.setSelectedAudioOutputDeviceId,
-      audioOutputState.setOutputDevice,
-    ],
+    [mediaPreferences, audioOutputState],
   )
 
   const restoreSnapshot = useCallback(
@@ -210,7 +202,7 @@ export function MediaStreamProvider({ children }: MediaStreamProviderProps) {
         void audioOutputState.setOutputDevice(outputDeviceId).catch(() => {})
       }
     },
-    [mediaPreferences.restoreSnapshot, audioOutputState.setOutputDevice],
+    [mediaPreferences, audioOutputState],
   )
 
   const combinedStream = useMemo((): MediaStream | null => {
@@ -248,12 +240,7 @@ export function MediaStreamProvider({ children }: MediaStreamProviderProps) {
     }
 
     return tracks.length === 0 ? null : new MediaStream(tracks)
-  }, [
-    videoResult,
-    audioResult,
-    mediaPreferences.videoEnabled,
-    mediaPreferences.audioEnabled,
-  ])
+  }, [videoResult, audioResult, mediaPreferences])
 
   const videoResultRef = useRef(videoResult)
   const audioResultRef = useRef(audioResult)
@@ -279,7 +266,7 @@ export function MediaStreamProvider({ children }: MediaStreamProviderProps) {
 
       mediaPreferences.setVideoEnabled(enabled)
     },
-    [mediaPreferences.setVideoEnabled],
+    [mediaPreferences],
   )
 
   const toggleAudio = useCallback(
@@ -295,7 +282,7 @@ export function MediaStreamProvider({ children }: MediaStreamProviderProps) {
 
       mediaPreferences.setAudioEnabled(enabled)
     },
-    [mediaPreferences.setAudioEnabled],
+    [mediaPreferences],
   )
 
   useEffect(() => {
@@ -365,35 +352,18 @@ export function MediaStreamProvider({ children }: MediaStreamProviderProps) {
         needsPermissionDialog,
         permissionsBlocked,
         permissionsGranted,
+        microphoneAvailable,
         recheckPermissions,
       },
     }),
     [
       videoResult,
       audioResult,
-      audioOutputState.devices,
-      audioOutputState.currentDeviceId,
-      audioOutputState.testOutput,
-      audioOutputState.isTesting,
-      audioOutputState.isSupported,
-      audioOutputState.error,
-      audioOutputState.isLoading,
-      audioOutputState.refreshDevices,
+      audioOutputState,
       combinedStream,
       toggleVideo,
       toggleAudio,
-      mediaPreferences.selectedVideoDeviceId,
-      mediaPreferences.selectedAudioInputDeviceId,
-      mediaPreferences.selectedAudioOutputDeviceId,
-      mediaPreferences.videoEnabled,
-      mediaPreferences.audioEnabled,
-      mediaPreferences.hasCommitted,
-      mediaPreferences.setSelectedVideoDeviceId,
-      mediaPreferences.setSelectedAudioInputDeviceId,
-      mediaPreferences.setVideoEnabled,
-      mediaPreferences.setAudioEnabled,
-      mediaPreferences.captureSnapshot,
-      mediaPreferences.commitPreferences,
+      mediaPreferences,
       restoreSnapshot,
       setSelectedAudioOutputDeviceId,
       isCheckingPermissions,
@@ -402,6 +372,7 @@ export function MediaStreamProvider({ children }: MediaStreamProviderProps) {
       needsPermissionDialog,
       permissionsBlocked,
       permissionsGranted,
+      microphoneAvailable,
       recheckPermissions,
     ],
   )

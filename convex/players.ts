@@ -19,6 +19,7 @@ import {
   AuthMismatchError,
   AuthRequiredError,
   BannedFromRoomError,
+  MaxSeatsReachedError,
   RoomFullError,
   RoomNotFoundError,
 } from './errors'
@@ -64,14 +65,33 @@ async function requireActiveRoomMember(
  * NOTE: userId is passed as parameter for Phase 3. In Phase 5, we'll use
  * getAuthUserId from Convex Auth instead.
  */
+/** Maximum simultaneous seats (tabs/devices) per user in a single room */
+const MAX_SEATS_PER_USER = 2
+
 export const joinRoom = mutation({
   args: {
     roomId: v.string(),
     sessionId: v.string(),
     username: v.string(),
     avatar: v.optional(v.string()),
+    audioEnabled: v.boolean(),
+    videoEnabled: v.boolean(),
+    /** "Tabletop", "Selfie", etc. — set when joining as additional camera */
+    seatLabel: v.optional(v.string()),
+    /** When true, skip duplicate-session detection and add as a linked seat */
+    intentionalDuplicate: v.optional(v.boolean()),
   },
-  handler: async (ctx, { roomId, sessionId, username, avatar }) => {
+  handler: async (
+    ctx,
+    {
+      roomId,
+      sessionId,
+      username,
+      avatar,
+      seatLabel,
+      intentionalDuplicate,
+    },
+  ) => {
     const userId = await getAuthUserId(ctx)
     if (!userId) {
       throw new AuthRequiredError()
@@ -141,12 +161,19 @@ export const joinRoom = mutation({
     }
 
     // Check if user has other sessions - get their health
-    const existingUserSession = await ctx.db
+    const existingUserSeats = await ctx.db
       .query('roomPlayers')
       .withIndex('by_roomId_userId', (q) =>
         q.eq('roomId', roomId).eq('userId', userId),
       )
-      .first()
+      .collect()
+    const existingUserSession = existingUserSeats[0] ?? null
+
+    // Enforce per-user seat cap when this is an intentional additional seat.
+    // (Without intentionalDuplicate the duplicate-session dialog handles it.)
+    if (intentionalDuplicate && existingUserSeats.length >= MAX_SEATS_PER_USER) {
+      throw new MaxSeatsReachedError(MAX_SEATS_PER_USER)
+    }
 
     // If user has no existing sessions in this room, check capacity
     if (!existingUserSession) {
@@ -183,7 +210,9 @@ export const joinRoom = mutation({
     const commanders = existingUserSession?.commanders ?? []
     const commanderDamage = existingUserSession?.commanderDamage ?? {}
 
-    // Create new player session
+    // Create new player session. Mark as a linked seat when this is an
+    // explicit additional camera (so the UI can render the label suffix
+    // and group rows by userId).
     const playerId = await ctx.db.insert('roomPlayers', {
       roomId,
       userId,
@@ -197,6 +226,12 @@ export const joinRoom = mutation({
       status: 'active',
       joinedAt: now,
       lastSeenAt: now,
+      ...(intentionalDuplicate
+        ? {
+            seatLabel: seatLabel?.slice(0, 40),
+            isLinkedSeat: true,
+          }
+        : {}),
     })
 
     // Upsert the userActiveRooms pointer

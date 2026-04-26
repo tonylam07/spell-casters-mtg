@@ -40,6 +40,10 @@ interface GameRoomProps {
   detectorType?: DetectorType
   usePerspectiveWarp?: boolean
   showTestStream?: boolean
+  /** Optional label for additional seats ("Tabletop", "Selfie") */
+  seatLabel?: string
+  /** True when this tab is intentionally joining as a second seat */
+  intentionalDuplicate?: boolean
 }
 
 function GameRoomContent({
@@ -116,7 +120,9 @@ function GameRoomContent({
   // Compute shareable link (only on client)
   const shareLink = useMemo(() => {
     if (typeof window === 'undefined') return ''
-    return `${window.location.origin}/game/${roomId}`
+    // NOTE: links land on `/` then client-redirect to `/game/{id}` to avoid
+    // a known SSR 500 on direct hits to /game/{id}. See routes/index.tsx.
+    return `${window.location.origin}/?join=${roomId}`
   }, [roomId])
 
   // HOOK: Dialog open state - only opens when user clicks settings button
@@ -409,8 +415,8 @@ function GameRoomMainLayout({
   useGameRoomKeyboardShortcuts(shortcutHandlers)
 
   return (
-    <div className="gap-4 p-4 flex h-full">
-      {/* Left Sidebar - Player List */}
+    <div className="gap-4 p-2 md:p-4 relative flex h-full">
+      {/* Left Sidebar - Player List (desktop fixed, mobile drawer) */}
       <GameRoomSidebar
         roomId={roomId}
         userId={userId}
@@ -451,6 +457,8 @@ function GameRoomWithPresence({
   detectorType,
   usePerspectiveWarp,
   showTestStream,
+  seatLabel,
+  intentionalDuplicate,
 }: Omit<GameRoomProps, 'playerName'>) {
   const handleDuplicateSession = useCallback(() => {
     console.log('[GameRoom] Duplicate session detected, showing dialog')
@@ -471,6 +479,8 @@ function GameRoomWithPresence({
   return (
     <PresenceProvider
       roomId={roomId}
+      seatLabel={seatLabel}
+      intentionalDuplicate={intentionalDuplicate}
       onDuplicateSession={handleDuplicateSession}
       onSessionTransferred={handleSessionTransferred}
     >

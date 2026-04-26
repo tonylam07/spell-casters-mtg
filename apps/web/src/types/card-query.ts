@@ -23,6 +23,9 @@ export interface CardQueryResult {
   /** Cosine similarity score between 0.0 and 1.0 */
   score: number
 
+  /** Scryfall card ID (used for art lookup + tracked-card key) */
+  scryfallId?: string
+
   /** Optional link to Scryfall card page */
   scryfall_uri?: string
 
@@ -31,6 +34,19 @@ export interface CardQueryResult {
 
   /** Optional URL to full card image */
   card_url?: string
+}
+
+/**
+ * Alternative card candidate surfaced when recognition is low confidence.
+ * Used by CardPickerPanel to let the user one-tap the right card from a
+ * top-K list.
+ */
+export interface CardQueryAlternative {
+  scryfallId: string
+  name: string
+  set: string
+  score: number
+  source: 'clip' | 'ocr+clip' | 'ocr-only'
 }
 
 /**
@@ -50,6 +66,12 @@ export interface CardQueryState {
 
   /** Data URL of the image used to query the database (dev only) */
   queryImageUrl: string | null
+
+  /** Top-K alternatives across the consensus buffer (incl. the committed top) */
+  alternatives: CardQueryAlternative[]
+
+  /** Raw OCR text (for debug + picker UI hint) */
+  ocrText?: string
 }
 
 /**
@@ -195,6 +217,12 @@ export interface UseCardQueryReturn {
 
   /** Clear the current result state and dismiss the preview */
   clearResult: () => void
+
+  /** Replace the committed top result with a user-picked alternative */
+  commitAlternative: (alt: CardQueryAlternative) => void
+
+  /** Clear the multi-frame consensus buffer (e.g., on manual re-identify) */
+  resetConsensus: () => void
 }
 
 /**

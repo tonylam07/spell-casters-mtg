@@ -22,7 +22,7 @@ import { Label } from '@repo/ui/components/label'
 
 interface AuthRequiredDialogProps {
   open: boolean
-  onSignIn: () => void
+  onSignIn: (provider?: 'discord' | 'google') => void | Promise<void>
   onClose: () => void
   onPreviewSignIn?: (code: string) => Promise<void> | void
   /** Optional message to show in the dialog */
@@ -53,35 +53,35 @@ export function AuthRequiredDialog({
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="border-warning/50 bg-surface-1 sm:max-w-[450px] [&>button]:hidden">
+      <DialogContent className="sm:max-w-[450px] border-warning/50 bg-surface-1 [&>button]:hidden">
         <DialogHeader>
           <div className="mb-2 flex justify-center">
-            <div className="bg-warning/20 flex h-12 w-12 items-center justify-center rounded-full">
-              <ShieldAlert className="text-warning h-6 w-6" />
+            <div className="h-12 w-12 flex items-center justify-center rounded-full bg-warning/20">
+              <ShieldAlert className="h-6 w-6 text-warning" />
             </div>
           </div>
-          <DialogTitle className="text-center text-white">
+          <DialogTitle className="text-white text-center">
             Sign In Required
           </DialogTitle>
-          <DialogDescription className="text-text-muted text-center">
+          <DialogDescription className="text-center text-text-muted">
             {message}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 py-4">
           <button
-            onClick={onSignIn}
-            className="border-brand/30 bg-brand/30 hover:border-brand/60 hover:bg-brand/40 focus:ring-brand/50 group w-full cursor-pointer rounded-lg border p-4 text-left transition-all focus:outline-none focus:ring-2"
+            onClick={() => onSignIn('discord')}
+            className="group p-4 w-full cursor-pointer rounded-lg border border-brand/30 bg-brand/30 text-left transition-all hover:border-brand/60 hover:bg-brand/40 focus:ring-2 focus:ring-brand/50 focus:outline-none"
           >
-            <div className="flex items-start gap-3">
-              <div className="bg-brand/20 group-hover:bg-brand/30 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors">
-                <LogIn className="text-brand-muted-foreground h-5 w-5" />
+            <div className="gap-3 flex items-start">
+              <div className="h-10 w-10 flex shrink-0 items-center justify-center rounded-lg bg-brand/20 transition-colors group-hover:bg-brand/30">
+                <LogIn className="h-5 w-5 text-brand-muted-foreground" />
               </div>
               <div>
-                <p className="text-brand-muted-foreground font-medium">
+                <p className="font-medium text-brand-muted-foreground">
                   Sign in with Discord
                 </p>
-                <p className="text-text-muted mt-0.5 text-sm">
+                <p className="mt-0.5 text-sm text-text-muted">
                   Connect your Discord account to join the game.
                 </p>
               </div>
@@ -89,18 +89,52 @@ export function AuthRequiredDialog({
           </button>
 
           <button
-            onClick={onClose}
-            className="border-surface-3 bg-surface-2/50 hover:border-surface-3 hover:bg-surface-2 focus:ring-surface-3/50 group w-full cursor-pointer rounded-lg border p-4 text-left transition-all focus:outline-none focus:ring-2"
+            onClick={() => onSignIn('google')}
+            className="group p-4 bg-white/95 hover:bg-white w-full cursor-pointer rounded-lg border border-surface-3 text-left transition-all focus:ring-2 focus:ring-surface-3/50 focus:outline-none"
           >
-            <div className="flex items-start gap-3">
-              <div className="bg-surface-3/50 group-hover:bg-surface-3 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors">
-                <Home className="text-text-muted h-5 w-5" />
+            <div className="gap-3 flex items-start">
+              <div className="h-10 w-10 bg-white flex shrink-0 items-center justify-center rounded-lg">
+                <svg className="h-5 w-5" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.44c-.28 1.49-1.13 2.75-2.41 3.6v3h3.89c2.28-2.1 3.59-5.2 3.59-8.84z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 24c3.24 0 5.96-1.07 7.95-2.9l-3.89-3c-1.08.72-2.45 1.16-4.06 1.16-3.13 0-5.78-2.11-6.73-4.96H1.25v3.09C3.23 21.3 7.31 24 12 24z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.27 14.3c-.24-.72-.38-1.49-.38-2.3s.14-1.58.38-2.3V6.61H1.25C.45 8.2 0 9.96 0 12s.45 3.8 1.25 5.39l4.02-3.09z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 4.74c1.77 0 3.35.61 4.6 1.8l3.43-3.43C17.95 1.19 15.24 0 12 0 7.31 0 3.23 2.7 1.25 6.61l4.02 3.09C6.22 6.85 8.87 4.74 12 4.74z"
+                  />
+                </svg>
               </div>
               <div>
-                <p className="text-text-secondary font-medium">
+                <p className="font-medium text-gray-900">Sign in with Google</p>
+                <p className="mt-0.5 text-sm text-gray-600">
+                  Use your Google account to join the game.
+                </p>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={onClose}
+            className="group p-4 w-full cursor-pointer rounded-lg border border-surface-3 bg-surface-2/50 text-left transition-all hover:border-surface-3 hover:bg-surface-2 focus:ring-2 focus:ring-surface-3/50 focus:outline-none"
+          >
+            <div className="gap-3 flex items-start">
+              <div className="h-10 w-10 flex shrink-0 items-center justify-center rounded-lg bg-surface-3/50 transition-colors group-hover:bg-surface-3">
+                <Home className="h-5 w-5 text-text-muted" />
+              </div>
+              <div>
+                <p className="font-medium text-text-secondary">
                   Return to Home
                 </p>
-                <p className="text-text-muted mt-0.5 text-sm">
+                <p className="mt-0.5 text-sm text-text-muted">
                   Go back without signing in.
                 </p>
               </div>
@@ -108,8 +142,8 @@ export function AuthRequiredDialog({
           </button>
 
           {showPreviewAuth ? (
-            <div className="border-warning/40 rounded-lg border p-3">
-              <p className="text-warning mb-2 text-sm font-medium">
+            <div className="p-3 rounded-lg border border-warning/40">
+              <p className="mb-2 text-sm font-medium text-warning">
                 Preview only
               </p>
               <div className="space-y-2">
@@ -127,7 +161,7 @@ export function AuthRequiredDialog({
                 <button
                   onClick={handlePreviewSignIn}
                   disabled={!code.trim() || isSubmitting}
-                  className="border-warning/50 bg-warning/20 hover:bg-warning/30 text-warning w-full cursor-pointer rounded-lg border px-3 py-2 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                  className="px-3 py-2 text-sm w-full cursor-pointer rounded-lg border border-warning/50 bg-warning/20 text-warning transition-colors hover:bg-warning/30 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSubmitting ? 'Signing in...' : 'Sign in with Code'}
                 </button>

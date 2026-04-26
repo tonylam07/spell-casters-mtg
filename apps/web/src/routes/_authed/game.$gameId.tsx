@@ -26,12 +26,15 @@ import { ErrorBoundary } from 'react-error-boundary'
 import { z } from 'zod'
 
 const defaultValues = {
+  detector: 'opencv' as const, // Default detector — drives both boundary detection and CLIP recognition
   usePerspectiveWarp: true, // Use OpenCV quad for precise perspective correction
   testStream: false, // Show a synthetic test stream in an empty slot
 }
 
 const gameSearchSchema = z.object({
-  detector: z.enum(['opencv', 'detr', 'owl-vit', 'yolov8']).optional(),
+  detector: z
+    .enum(['opencv', 'detr', 'owl-vit', 'yolov8'])
+    .default(defaultValues.detector),
   usePerspectiveWarp: z
     .boolean()
     .default(defaultValues.usePerspectiveWarp)
@@ -40,6 +43,10 @@ const gameSearchSchema = z.object({
     .boolean()
     .default(defaultValues.testStream)
     .describe('Show a synthetic test stream in an empty slot for development'),
+  /** When set, this tab joins as an additional seat with this label */
+  seatLabel: z.string().optional(),
+  /** "1" when this tab is intentionally a duplicate seat (coerce: TanStack Router JSON-parses numbers) */
+  intentional: z.coerce.string().optional(),
 })
 
 /**
@@ -162,7 +169,8 @@ export const Route = createFileRoute('/_authed/game/$gameId')({
 function GameRoomPage() {
   const { gameId } = Route.useParams()
   const { roomNotFound } = Route.useLoaderData()
-  const { detector, usePerspectiveWarp, testStream } = Route.useSearch()
+  const { detector, usePerspectiveWarp, testStream, seatLabel, intentional } =
+    Route.useSearch()
   const navigate = useNavigate()
   const { user } = useAuth()
 
@@ -249,6 +257,8 @@ function GameRoomPage() {
           detectorType={detector}
           usePerspectiveWarp={usePerspectiveWarp}
           showTestStream={testStream}
+          seatLabel={seatLabel}
+          intentionalDuplicate={intentional === '1'}
         />
       </Suspense>
     </ErrorBoundary>

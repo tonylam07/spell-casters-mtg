@@ -15,4 +15,8 @@ export interface Participant {
   commanderDamage: Record<string, number>
   /** Timestamp of last heartbeat - used to determine online/offline status */
   lastSeenAt: number
+  /** Optional label for additional seats ("Tabletop", "Selfie") */
+  seatLabel?: string
+  /** True for any seat after the user's first (primary) seat in this room */
+  isLinkedSeat?: boolean
 }

@@ -31,3 +31,7 @@ results.xml
 
 public/latest-dev/
 
+# Copied from repo-root static/card-index/ at build time
+public/card-index/
+
+.vercel

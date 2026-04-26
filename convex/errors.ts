@@ -20,6 +20,7 @@ export const ErrorCode = {
   BANNED_FROM_ROOM: 'BANNED_FROM_ROOM',
   CANNOT_TARGET_SELF: 'CANNOT_TARGET_SELF',
   ROOM_FULL: 'ROOM_FULL',
+  MAX_SEATS_REACHED: 'MAX_SEATS_REACHED',
 
   // Not Found
   ROOM_NOT_FOUND: 'ROOM_NOT_FOUND',
@@ -82,6 +83,16 @@ export class RoomFullError extends AppError {
   constructor(message = 'Room is full') {
     super(ErrorCode.ROOM_FULL, message)
     this.name = 'RoomFullError'
+  }
+}
+
+export class MaxSeatsReachedError extends AppError {
+  constructor(maxSeats: number) {
+    super(
+      ErrorCode.MAX_SEATS_REACHED,
+      `You already have ${maxSeats} seat(s) in this room — close another tab first.`,
+    )
+    this.name = 'MaxSeatsReachedError'
   }
 }
 

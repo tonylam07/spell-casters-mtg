@@ -97,6 +97,7 @@ let D = 512
 export type CardMeta = {
   name: string
   set: string
+  scryfallId?: string
   scryfall_uri?: string
   image_url?: string
   card_url?: string
@@ -547,6 +548,10 @@ export async function embedFromImageElement(imgEl: HTMLImageElement) {
   if (!extractor) throw new Error('Model not loaded')
   const out = await extractor(imgEl.src)
   return l2norm(Float32Array.from(out.data))
+}
+
+export function getCardMetadata(): CardMeta[] | null {
+  return meta
 }
 
 export function isModelReady(): boolean {

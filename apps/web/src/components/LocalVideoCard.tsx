@@ -1,9 +1,16 @@
 import type { DetectorType } from '@/lib/detectors'
 import type { Participant } from '@/types/participant'
-import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCardQueryContext } from '@/contexts/CardQueryContext'
 import { useMediaStreams } from '@/contexts/MediaStreamContext'
 import { useCardDetector } from '@/hooks/useCardDetector'
+import { useTrackedCards } from '@/hooks/useTrackedCards'
+import { useVideoOrientation } from '@/hooks/useVideoOrientation'
 import { attachVideoStream } from '@/lib/video-stream-utils'
+import { Bookmark, Loader2, MicOff } from 'lucide-react'
+import { toast } from 'sonner'
+
+import { ContextMenuItem } from '@repo/ui/components/context-menu'
 
 import { PlayerStatsOverlay } from './PlayerStatsOverlay'
 import { PlayerVideoCard } from './PlayerVideoCard'
@@ -14,6 +21,18 @@ import {
   LocalMediaControls,
   VideoDisabledPlaceholder,
 } from './PlayerVideoCardParts'
+import { TrackedCardTray } from './TrackedCardTray'
+import { VideoOrientationContextMenu } from './VideoOrientationContextMenu'
+
+// Container that holds the video + detection overlay; the orientation
+// transform is applied here so the overlay stays aligned with the video.
+const ORIENTED_CONTAINER_BASE: React.CSSProperties = {
+  position: 'absolute',
+  inset: 0,
+  zIndex: 0,
+  transformOrigin: 'center center',
+  transition: 'transform 150ms ease-out',
+}
 
 // Extract inline style to prevent recreation
 const LOCAL_VIDEO_STYLE: React.CSSProperties = {
@@ -60,6 +79,7 @@ export const LocalVideoCard = memo(function LocalVideoCard({
     toggleVideo,
     toggleAudio: toggleLocalAudio,
     mediaPreferences: { videoEnabled, audioEnabled },
+    permissions: { microphoneAvailable },
   } = useMediaStreams()
 
   const [isTogglingVideo, setIsTogglingVideo] = useState(false)
@@ -78,14 +98,74 @@ export const LocalVideoCard = memo(function LocalVideoCard({
   )
 
   // Initialize card detector (only when stream exists)
-  const { overlayRef, croppedRef, fullResRef } = useCardDetector({
-    videoRef: videoRef,
-    enableCardDetection: enableCardDetection && !!stream,
-    detectorType,
-    usePerspectiveWarp,
-    onCrop: onCardCrop,
-    reinitializeTrigger: stream ? 1 : 0,
-  })
+  const { overlayRef, croppedRef, fullResRef, getCroppedCanvas } =
+    useCardDetector({
+      videoRef: videoRef,
+      enableCardDetection: enableCardDetection && !!stream,
+      detectorType,
+      usePerspectiveWarp,
+      onCrop: onCardCrop,
+      reinitializeTrigger: stream ? 1 : 0,
+    })
+
+  // Card-query context: lets a click on the live tile trigger CLIP recognition
+  // against whatever the detector last cropped (independent of the auto-loop).
+  const cardQuery = useCardQueryContext()
+  const handleIdentifyClick = useCallback(() => {
+    const canvas = getCroppedCanvas()
+    if (!canvas) return
+    // Reset consensus so the picker reflects only the fresh sequence of
+    // detections triggered by this click, not stale frames from a prior card.
+    cardQuery.resetConsensus()
+    void cardQuery.query(canvas)
+  }, [cardQuery, getCroppedCanvas])
+
+  // Tracked cards (Convex live query, owner-gated mutations)
+  const { cards, trackCard, untrackCard, bump } = useTrackedCards(roomId ?? '')
+  const myCards = useMemo(
+    () => cards.filter((card) => card.ownerUserId === currentUser?.id),
+    [cards, currentUser?.id],
+  )
+  const lastResult = cardQuery.state.result
+  const isQuerying = cardQuery.state.status === 'querying'
+  const trackTopSlot = (() => {
+    if (lastResult?.scryfallId) {
+      return (
+        <ContextMenuItem
+          onSelect={() => {
+            if (!lastResult.scryfallId) return
+            void trackCard(lastResult.scryfallId, lastResult.name)
+              .then(() =>
+                toast.success(`Tracking "${lastResult.name}"`, {
+                  duration: 2500,
+                }),
+              )
+              .catch((error) => {
+                console.error('[LocalVideoCard] trackCard failed:', error)
+                toast.error('Failed to track card')
+              })
+          }}
+        >
+          <Bookmark className="mr-2 h-4 w-4" />
+          Track {lastResult.name}
+        </ContextMenuItem>
+      )
+    }
+    if (isQuerying) {
+      return (
+        <ContextMenuItem disabled>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Identifying card...
+        </ContextMenuItem>
+      )
+    }
+    return (
+      <ContextMenuItem disabled>
+        <Bookmark className="mr-2 h-4 w-4" />
+        No card recognized — click tile first
+      </ContextMenuItem>
+    )
+  })()
 
   // Audio muted state is derived from context's audioEnabled preference
   const isAudioMuted = !audioEnabled
@@ -140,29 +220,71 @@ export const LocalVideoCard = memo(function LocalVideoCard({
   const hasVideoStream =
     videoEnabled && stream && stream.getVideoTracks().length > 0
 
+  // Orientation + zoom: per-tile transform persisted to localStorage
+  const orientation = useVideoOrientation('local')
+  const orientedContainerStyle = useMemo<React.CSSProperties>(
+    () => ({ ...ORIENTED_CONTAINER_BASE, transform: orientation.transform }),
+    [orientation.transform],
+  )
+
+  // Mouse-wheel zoom (Shift+Wheel to avoid hijacking page scroll)
+  const handleWheel = useCallback(
+    (event: React.WheelEvent<HTMLDivElement>) => {
+      if (!event.shiftKey) return
+      event.preventDefault()
+      if (event.deltaY < 0) orientation.zoomIn()
+      else if (event.deltaY > 0) orientation.zoomOut()
+    },
+    [orientation],
+  )
+
   return (
     <PlayerVideoCard ref={videoContainerRef}>
       {hasVideoStream ? (
-        <>
-          <video
-            ref={handleVideoRef}
-            autoPlay
-            muted
-            playsInline
-            style={LOCAL_VIDEO_STYLE}
-          />
-          {enableCardDetection && overlayRef && (
-            <CardDetectionOverlay overlayRef={overlayRef} />
-          )}
-          {enableCardDetection && croppedRef && (
-            <CroppedCanvas croppedRef={croppedRef} />
-          )}
-          {enableCardDetection && fullResRef && (
-            <FullResCanvas fullResRef={fullResRef} />
-          )}
-        </>
+        <VideoOrientationContextMenu
+          orientation={orientation}
+          topSlot={trackTopSlot}
+        >
+          <div
+            style={orientedContainerStyle}
+            onClick={handleIdentifyClick}
+            onWheel={handleWheel}
+            role="button"
+            tabIndex={-1}
+            aria-label="Click to identify card"
+          >
+            <video
+              ref={handleVideoRef}
+              autoPlay
+              muted
+              playsInline
+              style={LOCAL_VIDEO_STYLE}
+            />
+            {enableCardDetection && overlayRef && (
+              <CardDetectionOverlay overlayRef={overlayRef} />
+            )}
+            {enableCardDetection && croppedRef && (
+              <CroppedCanvas croppedRef={croppedRef} />
+            )}
+            {enableCardDetection && fullResRef && (
+              <FullResCanvas fullResRef={fullResRef} />
+            )}
+          </div>
+        </VideoOrientationContextMenu>
       ) : (
         <VideoDisabledPlaceholder />
+      )}
+
+      {/* No-mic banner — surfaces gracefully when mic is denied/missing */}
+      {!microphoneAvailable && (
+        <div
+          data-testid="no-microphone-banner"
+          className="left-3 top-3 gap-1.5 px-2 py-1 text-xs shadow-sm backdrop-blur-sm absolute z-20 inline-flex items-center rounded-md border border-warning/40 bg-warning/15 text-warning"
+          title="Other players will not hear you"
+        >
+          <MicOff className="h-3 w-3" />
+          <span>No microphone</span>
+        </div>
       )}
 
       {/* Stats Overlay */}
@@ -184,6 +306,16 @@ export const LocalVideoCard = memo(function LocalVideoCard({
         onToggleAudio={handleToggleAudio}
         isTogglingVideo={isTogglingVideo}
       />
+
+      {/* Tracked cards tray (own tile, editable) */}
+      {roomId && currentUser ? (
+        <TrackedCardTray
+          cards={myCards}
+          editable
+          onBump={bump}
+          onUntrack={untrackCard}
+        />
+      ) : null}
     </PlayerVideoCard>
   )
 })
