@@ -26,8 +26,29 @@ export interface ScryfallCard {
   name: string
   type_line: string
   oracle_text?: string
+  mana_cost?: string
+  cmc?: number
+  power?: string
+  toughness?: string
+  loyalty?: string
+  defense?: string
   keywords: string[]
   all_parts?: ScryfallRelatedCard[]
+  card_faces?: Array<{
+    name: string
+    type_line?: string
+    oracle_text?: string
+    mana_cost?: string
+    power?: string
+    toughness?: string
+    loyalty?: string
+    image_uris?: {
+      small: string
+      normal: string
+      large: string
+      art_crop: string
+    }
+  }>
   image_uris?: {
     small: string
     normal: string
@@ -40,6 +61,14 @@ export interface ScryfallCard {
   set: string
   /** Full set name (e.g., "Limited Edition Alpha", "Core Set 2021") */
   set_name: string
+}
+
+export interface ScryfallRuling {
+  object: 'ruling'
+  oracle_id: string
+  source: string
+  published_at: string
+  comment: string
 }
 
 export interface ScryfallAutocompleteResponse {
@@ -250,6 +279,27 @@ export function toScryfallPngUrl(url: string): string {
   return url
     .replace(/\/(normal|large|small|border_crop|art_crop)\//, '/png/')
     .replace(/\.(jpg|jpeg)(\?|$)/i, '.png$2')
+}
+
+/**
+ * Fetch a card by Scryfall UUID
+ */
+export async function getCardById(id: string): Promise<ScryfallCard | null> {
+  const url = `${SCRYFALL_API}/cards/${id}`
+  const res = await fetch(url)
+  if (!res.ok) return null
+  return res.json()
+}
+
+/**
+ * Fetch rulings for a card by Scryfall UUID
+ */
+export async function getCardRulings(id: string): Promise<ScryfallRuling[]> {
+  const url = `${SCRYFALL_API}/cards/${id}/rulings`
+  const res = await fetch(url)
+  if (!res.ok) return []
+  const data: { data: ScryfallRuling[] } = await res.json()
+  return data.data
 }
 
 /**

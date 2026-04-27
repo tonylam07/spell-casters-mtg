@@ -357,6 +357,7 @@ export function useConvexPresence({
         poison: player.poison ?? 0,
         commanders: player.commanders ?? [],
         commanderDamage: player.commanderDamage ?? {},
+        commanderTax: player.commanderTax ?? {},
         lastSeenAt: player.lastSeenAt,
         seatLabel: player.seatLabel,
         isLinkedSeat: player.isLinkedSeat,

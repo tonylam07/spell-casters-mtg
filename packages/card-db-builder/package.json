@@ -8,13 +8,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@repo/card-detection": "*",
     "@huggingface/transformers": "^3.7.6",
+    "@repo/card-detection": "*",
     "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@repo/typescript-config": "*",
-    "tsx": "^4.7.2",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.2"
   }
 }

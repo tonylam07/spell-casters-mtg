@@ -25,6 +25,7 @@ import { Toaster } from '@repo/ui/components/sonner'
 import type { RejoinReason } from './RejoinGameDialog.js'
 import { AppHeader } from './AppHeader.js'
 import { CardSearchCommand } from './CardSearchCommand.js'
+import { useTurnUserId } from './TurnTracker.js'
 import { DuplicateSessionDialog } from './DuplicateSessionDialog.js'
 import { GameRoomSidebar } from './GameRoomSidebar.js'
 import { LeaveGameDialog } from './LeaveGameDialog.js'
@@ -427,6 +428,8 @@ function GameRoomMainLayout({
 
   useGameRoomKeyboardShortcuts(shortcutHandlers)
 
+  const currentTurnUserId = useTurnUserId(roomId)
+
   return (
     <div className="gap-4 p-2 md:p-4 relative flex h-full">
       {/* Left Sidebar - Player List (desktop fixed, mobile drawer) */}
@@ -452,6 +455,7 @@ function GameRoomMainLayout({
           roomId={roomId}
           userId={userId}
           localPlayerName={username}
+          currentTurnUserId={currentTurnUserId}
           detectorType={detectorType}
           usePerspectiveWarp={usePerspectiveWarp}
           onCardCrop={onCardCrop}

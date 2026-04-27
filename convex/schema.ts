@@ -38,6 +38,16 @@ export default defineSchema({
     seatCount: v.optional(v.number()),
     /** Last time any activity occurred in the room (joins, leaves, state changes) */
     lastActivityAt: v.optional(v.number()),
+    /** userId of the player whose turn it currently is */
+    currentTurnUserId: v.optional(v.string()),
+    /** Room-level game roles — transferred between players during play */
+    monarchUserId: v.optional(v.string()),
+    initiativeUserId: v.optional(v.string()),
+    thRingBearerUserId: v.optional(v.string()),
+    /** userIds who currently have City's Blessing (multiple players can hold it) */
+    citysBlessingUserIds: v.optional(v.array(v.string())),
+    /** Current day/night state for Innistrad mechanics */
+    dayNightState: v.optional(v.union(v.literal('day'), v.literal('night'))),
   })
     .index('by_roomId', ['roomId'])
     .index('by_ownerId', ['ownerId'])
@@ -81,6 +91,8 @@ export default defineSchema({
     ),
     /** Per-commander damage taken, keyed by ownerUserId:commanderId */
     commanderDamage: v.record(v.string(), v.number()),
+    /** Number of times each commander has been cast this game, keyed by commanderId */
+    commanderTax: v.optional(v.record(v.string(), v.number())),
     /** Player status */
     status: playerStatusValues,
     /** When player joined */
@@ -196,4 +208,28 @@ export default defineSchema({
     /** Last heartbeat timestamp (for presence TTL) */
     lastSeenAt: v.number(),
   }).index('by_userId', ['userId']),
+
+  /**
+   * roomEvents - Game log entries: chat messages, dice rolls, turn changes, join/leave
+   *
+   * Shared reactive feed used by the GameLogPanel for both the activity log
+   * and in-room chat. Kept for the lifetime of the room (no TTL).
+   */
+  roomEvents: defineTable({
+    roomId: v.string(),
+    userId: v.string(),
+    username: v.string(),
+    type: v.union(
+      v.literal('chat'),
+      v.literal('dice_roll'),
+      v.literal('turn_change'),
+      v.literal('join'),
+      v.literal('leave'),
+    ),
+    /** Type-specific data — shape depends on `type` */
+    payload: v.any(),
+    createdAt: v.number(),
+  })
+    .index('by_roomId_createdAt', ['roomId', 'createdAt'])
+    .index('by_roomId', ['roomId']),
 })

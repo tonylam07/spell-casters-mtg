@@ -18,8 +18,10 @@ import {
   AlertCircle,
   Check,
   Loader2,
+  Minus,
   Pencil,
   Plus,
+  RotateCcw,
   Trash2,
   User,
   UserCircle,
@@ -175,6 +177,9 @@ export function GameStatsPanel({
 
   // Convex mutation for setting commanders
   const setCommandersMutation = useConvexMutation(api.rooms.setPlayerCommanders)
+
+  // Convex mutation for commander tax
+  const bumpTaxMutation = useConvexMutation(api.gameState.bumpCommanderTax)
 
   // Mutation variables type includes which commander triggered the save
   type SaveCommandersInput = {
@@ -518,6 +523,10 @@ export function GameStatsPanel({
                       handleQuickFillCommander2(player.id, name)
                     }
                     getCommanderImageUrl={getCommanderImageUrl}
+                    roomId={convexRoomId}
+                    onBumpTax={(commanderId, delta) =>
+                      bumpTaxMutation({ roomId: convexRoomId, commanderId, delta })
+                    }
                   />
                 )
               })}
@@ -580,6 +589,8 @@ interface PlayerCommanderCardProps {
   onCommander2Resolved: (card: ScryfallCard | null) => void
   onQuickFillCommander2: (name: string) => void
   getCommanderImageUrl: (id: string) => string | null
+  roomId: string
+  onBumpTax: (commanderId: string, delta: number) => void
 }
 
 function PlayerCommanderCard({
@@ -603,6 +614,7 @@ function PlayerCommanderCard({
   onCommander2Resolved,
   onQuickFillCommander2,
   getCommanderImageUrl,
+  onBumpTax,
 }: PlayerCommanderCardProps) {
   const slotPadding = singleSlotEdit ? 'p-3' : 'p-4'
   const headerSpacing = singleSlotEdit ? 'mb-2 pb-1.5' : 'mb-3 pb-2'
@@ -689,6 +701,8 @@ function PlayerCommanderCard({
           suggestions={commander2Suggestions}
           suggestionsLabel={suggestionsLabel}
           onQuickFillCommander2={onQuickFillCommander2}
+          taxCount={player.commanders[0] ? (player.commanderTax?.[player.commanders[0].id] ?? 0) : 0}
+          onBumpTax={onBumpTax}
         />
         {(player.commanders[1]?.name ||
           (isEditingThisPlayer && cmdState.allowsSecondCommander)) && (
@@ -710,6 +724,8 @@ function PlayerCommanderCard({
             allowsSecondCommander={cmdState.allowsSecondCommander}
             suggestions={commander2Suggestions}
             suggestionsLabel={suggestionsLabel}
+            taxCount={player.commanders[1] ? (player.commanderTax?.[player.commanders[1].id] ?? 0) : 0}
+            onBumpTax={onBumpTax}
           />
         )}
       </div>
@@ -740,15 +756,22 @@ interface CommanderSlotProps {
   allowsSecondCommander?: boolean
   suggestions?: string[]
   suggestionsLabel?: string
+  // Tax counter
+  taxCount?: number
+  onBumpTax?: (commanderId: string, delta: number) => void
 }
 
-/** View-only commander card (image, name) – edit via header button */
+/** View-only commander card (image, name, tax counter) – edit via header button */
 function CommanderSlotView({
   commander,
   getCommanderImageUrl,
+  taxCount,
+  onBumpTax,
 }: {
   commander: { id: string; name: string }
   getCommanderImageUrl: (id: string) => string | null
+  taxCount: number
+  onBumpTax: (commanderId: string, delta: number) => void
 }) {
   const imageUrl = getCommanderImageUrl(commander.id)
   return (
@@ -763,10 +786,50 @@ function CommanderSlotView({
           <div className="inset-0 from-slate-950/80 via-slate-950/40 absolute bg-gradient-to-r to-transparent" />
         </div>
       )}
-      <div className="px-3 relative z-10 flex min-h-[76px] flex-1 items-center">
+      <div className="px-3 relative z-10 flex min-h-[76px] flex-1 items-center justify-between">
         <span className="text-shadow-sm text-sm font-medium shadow-black text-text-secondary">
           {commander.name}
         </span>
+        {/* Commander tax counter */}
+        <div className="gap-1 ml-2 flex flex-shrink-0 items-center">
+          <button
+            type="button"
+            onClick={() => onBumpTax(commander.id, -1)}
+            disabled={taxCount === 0}
+            className="h-5 w-5 flex items-center justify-center rounded text-text-muted transition-colors hover:bg-surface-3 hover:text-text-secondary disabled:opacity-30"
+            title="Undo cast"
+          >
+            <Minus className="h-3 w-3" />
+          </button>
+          <div
+            className={`min-w-[1.5rem] rounded px-1 py-0.5 text-center text-xs font-semibold ${
+              taxCount > 0
+                ? 'bg-brand/20 text-brand-muted-foreground'
+                : 'text-text-muted'
+            }`}
+            title={`Cast ${taxCount} time${taxCount !== 1 ? 's' : ''} (tax: +${taxCount * 2})`}
+          >
+            {taxCount}×
+          </div>
+          <button
+            type="button"
+            onClick={() => onBumpTax(commander.id, 1)}
+            className="h-5 w-5 flex items-center justify-center rounded text-text-muted transition-colors hover:bg-surface-3 hover:text-brand-muted-foreground"
+            title="Mark cast"
+          >
+            <Plus className="h-3 w-3" />
+          </button>
+          {taxCount > 0 && (
+            <button
+              type="button"
+              onClick={() => onBumpTax(commander.id, 0)}
+              className="h-5 w-5 flex items-center justify-center rounded text-text-muted transition-colors hover:bg-surface-3 hover:text-destructive"
+              title="Reset tax"
+            >
+              <RotateCcw className="h-3 w-3" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -899,6 +962,8 @@ function CommanderSlot({
   allowsSecondCommander,
   suggestions,
   suggestionsLabel,
+  taxCount = 0,
+  onBumpTax,
 }: CommanderSlotProps) {
   if (!commander && !isEditing) return null
 
@@ -926,6 +991,8 @@ function CommanderSlot({
     <CommanderSlotView
       commander={commander}
       getCommanderImageUrl={getCommanderImageUrl}
+      taxCount={taxCount}
+      onBumpTax={onBumpTax ?? (() => {})}
     />
   )
 }

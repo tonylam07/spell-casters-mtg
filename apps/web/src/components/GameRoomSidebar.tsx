@@ -14,7 +14,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useCardQueryContext } from '@/contexts/CardQueryContext'
 import { useCommanderDamageDialog } from '@/contexts/CommanderDamageDialogContext'
 import { usePresence } from '@/contexts/PresenceContext'
-import { History, PanelLeft, Trash2 } from 'lucide-react'
+import { useRoomGameState } from '@/hooks/useRoomGameState'
+import { ChevronDown, ChevronRight, History, MessageSquare, PanelLeft, Shield, Sword, Trash2 } from 'lucide-react'
 
 import { Button } from '@repo/ui/components/button'
 import { Card } from '@repo/ui/components/card'
@@ -33,8 +34,12 @@ import {
 } from '@repo/ui/components/tooltip'
 
 import { CardPreview } from './CardPreview'
+import { DiceRoller } from './DiceRoller'
+import { GameLogPanel } from './GameLogPanel'
 import { GameStatsPanel } from './GameStatsPanel'
 import { PlayerList } from './PlayerList'
+import { RoomRolesPanel } from './RoomRolesPanel'
+import { TurnTracker } from './TurnTracker'
 
 /**
  * Shared sidebar card component with header and content
@@ -367,8 +372,68 @@ function SidebarContent({
     [participants, user?.id],
   )
 
+  const [rolesOpen, setRolesOpen] = useState(false)
+
+  const roomGameState = useRoomGameState(roomId)
+  const roleBadgesByUserId = useMemo(() => {
+    const map = new Map<string, string[]>()
+    if (!roomGameState) return map
+    const add = (userId: string | null, badge: string) => {
+      if (!userId) return
+      const existing = map.get(userId) ?? []
+      map.set(userId, [...existing, badge])
+    }
+    add(roomGameState.monarchUserId, '👑')
+    add(roomGameState.initiativeUserId, '⚔️')
+    add(roomGameState.thRingBearerUserId, '💍')
+    for (const id of roomGameState.citysBlessingUserIds) {
+      add(id, '✨')
+    }
+    return map
+  }, [roomGameState])
+
   const sidebarContent = (
     <>
+      {/* Turn tracker + dice roller row */}
+      <div className="flex-shrink-0 space-y-1.5">
+        <TurnTracker roomId={roomId} />
+        <div className="flex justify-end">
+          <DiceRoller roomId={roomId} />
+        </div>
+      </div>
+
+      {/* Room roles + Day/Night — collapsible */}
+      {user && (
+        <div className="flex-shrink-0">
+          <Card className="gap-0 overflow-hidden border-surface-2 bg-surface-1">
+            <button
+              type="button"
+              onClick={() => setRolesOpen((v) => !v)}
+              className="px-3 py-2 flex w-full items-center justify-between border-b border-surface-2 bg-surface-0/50 text-left"
+            >
+              <div className="gap-2 flex items-center">
+                <Shield className="h-4 w-4 text-text-muted" />
+                <span className="text-sm font-medium text-text-secondary">Room Roles</span>
+              </div>
+              {rolesOpen ? (
+                <ChevronDown className="h-3.5 w-3.5 text-text-muted" />
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5 text-text-muted" />
+              )}
+            </button>
+            {rolesOpen && (
+              <div className="px-2 py-2">
+                <RoomRolesPanel
+                  roomId={roomId}
+                  currentUserId={user.id}
+                  participants={uniqueParticipants}
+                />
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
       <div className="flex-shrink-0">
         <PlayerList
           players={playersWithStatus}
@@ -387,18 +452,20 @@ function SidebarContent({
           onResetGame={onResetGame}
           roomId={roomId}
           ownSeatCount={ownSeatCount}
+          roleBadgesByUserId={roleBadgesByUserId}
         />
       </div>
       <div className="flex-shrink-0">
         <CardPreview onClose={clearResult} />
       </div>
       <div className="min-h-0 flex flex-1 flex-col">
-        <CardHistoryList
+        <BottomTabs
+          roomId={roomId}
           history={history}
-          onSelect={handleHistorySelect}
+          onHistorySelect={handleHistorySelect}
           selectedCardId={selectedCardIdForHighlight}
-          onClear={clearHistory}
-          onRemove={removeFromHistory}
+          onClearHistory={clearHistory}
+          onRemoveHistory={removeFromHistory}
         />
       </div>
     </>
@@ -452,6 +519,75 @@ function SidebarContent({
         </Activity>
       )}
     </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Tabbed bottom section: Card History | Chat & Log
+// ---------------------------------------------------------------------------
+
+function BottomTabs({
+  roomId,
+  history,
+  onHistorySelect,
+  selectedCardId,
+  onClearHistory,
+  onRemoveHistory,
+}: {
+  roomId: string
+  history: CardHistoryEntry[]
+  onHistorySelect: (entry: CardHistoryEntry) => void
+  selectedCardId: string | null
+  onClearHistory: () => void
+  onRemoveHistory: (entry: CardHistoryEntry) => void
+}) {
+  const [tab, setTab] = useState<'history' | 'chat'>('chat')
+
+  return (
+    <Card className="gap-0 overflow-hidden border-surface-2 bg-surface-1 min-h-0 flex max-h-full flex-col">
+      {/* Tab bar */}
+      <div className="flex shrink-0 border-b border-surface-2">
+        <button
+          onClick={() => setTab('history')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
+            tab === 'history'
+              ? 'text-text-primary border-b-2 border-brand -mb-px'
+              : 'text-text-muted hover:text-text-secondary'
+          }`}
+        >
+          <History className="h-3.5 w-3.5" />
+          Cards
+          {history.length > 0 && (
+            <span className="text-[10px] text-text-muted">{history.length}</span>
+          )}
+        </button>
+        <button
+          onClick={() => setTab('chat')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
+            tab === 'chat'
+              ? 'text-text-primary border-b-2 border-brand -mb-px'
+              : 'text-text-muted hover:text-text-secondary'
+          }`}
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+          Chat & Log
+        </button>
+      </div>
+
+      {tab === 'history' ? (
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <CardHistoryList
+            history={history}
+            onSelect={onHistorySelect}
+            selectedCardId={selectedCardId}
+            onClear={onClearHistory}
+            onRemove={onRemoveHistory}
+          />
+        </div>
+      ) : (
+        <GameLogPanel roomId={roomId} />
+      )}
+    </Card>
   )
 }
 

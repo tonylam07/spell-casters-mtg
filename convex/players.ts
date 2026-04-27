@@ -253,6 +253,17 @@ export const joinRoom = mutation({
     // Update room activity (only if this is a new user joining, not just a new session)
     if (!existingUserSession) {
       await ctx.db.patch(room._id, { lastActivityAt: now })
+      // Log join event (skip linked seats — avoids duplicate "joined" messages)
+      if (!intentionalDuplicate) {
+        await ctx.db.insert('roomEvents', {
+          roomId,
+          userId,
+          username,
+          type: 'join',
+          payload: {},
+          createdAt: now,
+        })
+      }
     }
 
     return { playerId }
@@ -311,7 +322,7 @@ export const leaveRoom = mutation({
         )
         .first()
 
-      // If no other active sessions, clear the userActiveRooms pointer
+      // If no other active sessions, clear the userActiveRooms pointer and log leave
       if (!otherActiveSessions) {
         const pointer = await ctx.db
           .query('userActiveRooms')
@@ -321,6 +332,15 @@ export const leaveRoom = mutation({
         if (pointer && pointer.roomId === roomId) {
           await ctx.db.delete(pointer._id)
         }
+
+        await ctx.db.insert('roomEvents', {
+          roomId,
+          userId: player.userId,
+          username: player.username,
+          type: 'leave',
+          payload: {},
+          createdAt: now,
+        })
       }
 
       // Check if this user was the owner and transfer if needed

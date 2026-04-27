@@ -23,6 +23,10 @@ const MAX_DEDUPE_ENTRIES = 500
 interface UseConvexSignalingProps {
   roomId: string
   localPeerId: string
+  /** Session ID for this tab (used to filter signals for linked seats of same user) */
+  localSessionId?: string
+  /** Maps sessionId → userId so we can set correct toUserId on the Convex signal */
+  sessionUserIdMap?: Map<string, string>
   enabled?: boolean
   onSignal?: (signal: WebRTCSignal) => void
   onError?: (error: Error) => void
@@ -46,6 +50,8 @@ interface UseConvexSignalingReturn {
 export function useConvexSignaling({
   roomId,
   localPeerId,
+  localSessionId,
+  sessionUserIdMap,
   enabled = true,
   onSignal,
   onError,
@@ -124,11 +130,29 @@ export function useConvexSignaling({
         maxTimestamp = signal.createdAt
       }
 
+      // Extract session routing info embedded in the payload
+      const payloadData = signal.payload as {
+        type: string
+        payload?: unknown
+        fromSessionId?: string
+        toSessionId?: string
+      }
+
+      // Session-based filtering: skip signals targeting a different session
+      if (payloadData.toSessionId && localSessionId && payloadData.toSessionId !== localSessionId) {
+        continue
+      }
+
+      // Use session IDs for peer routing when available, fall back to user IDs
+      const fromPeer = payloadData.fromSessionId ?? signal.fromUserId
+      const toPeer = payloadData.toSessionId ?? localPeerId
+
       // Convert Convex signal format to WebRTCSignal format
       const webrtcSignal = {
-        ...signal.payload,
-        from: signal.fromUserId,
-        to: signal.toUserId ?? localPeerId, // Broadcast signals have null toUserId
+        type: payloadData.type,
+        payload: payloadData.payload,
+        from: fromPeer,
+        to: toPeer,
         roomId: signal.roomId,
       }
 
@@ -217,13 +241,16 @@ export function useConvexSignaling({
       try {
         await sendSignalRef.current({
           roomId: convexRoomId,
-          toUserId: validatedSignal.to,
+          // Resolve session ID → user ID so Convex routes to the right subscriber
+          toUserId: sessionUserIdMap?.get(validatedSignal.to) ?? validatedSignal.to,
           payload: {
             type: validatedSignal.type,
             payload:
               'payload' in validatedSignal
                 ? validatedSignal.payload
                 : undefined,
+            fromSessionId: localSessionId,
+            toSessionId: validatedSignal.to,
           },
         })
       } catch (err) {

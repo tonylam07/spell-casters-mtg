@@ -24,6 +24,10 @@ import {
 
 interface UseConvexWebRTCProps {
   localPlayerId: string
+  /** Session ID for this tab — used as the WebRTC peer ID so linked seats get independent connections */
+  localSessionId?: string
+  /** Maps sessionId → userId for outbound signal routing */
+  sessionUserIdMap?: Map<string, string>
   remotePlayerIds: string[]
   roomId: string
   localStream: MediaStream | null
@@ -42,12 +46,17 @@ interface UseConvexWebRTCReturn {
 
 export function useConvexWebRTC({
   localPlayerId,
+  localSessionId,
+  sessionUserIdMap,
   remotePlayerIds,
   roomId,
   localStream,
   presenceReady = true,
   onError,
 }: UseConvexWebRTCProps): UseConvexWebRTCReturn {
+  // Use sessionId as the peer identity when available so linked seats (dual-cam)
+  // each get an independent WebRTC connection instead of conflicting on the same userId.
+  const effectivePeerId = localSessionId ?? localPlayerId
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(
     new Map(),
   )
@@ -111,7 +120,9 @@ export function useConvexWebRTC({
     error: signalingError,
   } = useConvexSignaling({
     roomId,
-    localPeerId: localPlayerId,
+    localPeerId: effectivePeerId,
+    localSessionId,
+    sessionUserIdMap,
     enabled: !!localPlayerId && !!roomId && presenceReady,
     onSignal: handleSignal,
     onError: (error) => onWebrtcErrorRef.current(error),
@@ -145,7 +156,7 @@ export function useConvexWebRTC({
     const initiatedPeers = initiatedPeersRef.current
 
     const manager = new WebRTCManager(
-      localPlayerId,
+      effectivePeerId,
       async (signal: WebRTCSignal) => {
         if (!isDestroyed) {
           await sendSignalLatest(signal)
@@ -211,6 +222,7 @@ export function useConvexWebRTC({
     }
   }, [
     localPlayerId,
+    effectivePeerId,
     roomId,
     presenceReady,
     isSignalingInitialized,
@@ -246,7 +258,7 @@ export function useConvexWebRTC({
     reconcilePeerConnections({
       manager,
       remotePlayerIds: stableRemotePlayerIds,
-      localPlayerId,
+      localPlayerId: effectivePeerId,
       roomId,
       localStreamReady: !!localStream && manager.hasLocalStream(),
       initiatedPeers: initiatedPeersRef.current,
@@ -255,7 +267,7 @@ export function useConvexWebRTC({
   }, [
     stableRemotePlayerIds,
     isSignalingInitialized,
-    localPlayerId,
+    effectivePeerId,
     roomId,
     localStream,
   ])
@@ -278,7 +290,7 @@ export function useConvexWebRTC({
         connectingSinceMs: connectingSinceMsRef.current,
         reconnectAttempts: reconnectAttemptsRef.current,
         initiatedPeers: initiatedPeersRef.current,
-        localPlayerId,
+        localPlayerId: effectivePeerId,
         roomId,
         onConnectionReset: (peerId) => {
           setConnectionStates((previous) => {
@@ -294,7 +306,7 @@ export function useConvexWebRTC({
     return () => {
       clearInterval(interval)
     }
-  }, [isSignalingInitialized, localPlayerId, roomId])
+  }, [isSignalingInitialized, effectivePeerId, roomId])
 
   return {
     localStream,

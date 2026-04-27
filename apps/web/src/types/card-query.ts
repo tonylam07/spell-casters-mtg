@@ -23,6 +23,9 @@ export interface CardQueryResult {
   /** Cosine similarity score between 0.0 and 1.0 */
   score: number
 
+  /** Combined OCR+CLIP confidence (0.0–1.0), if available */
+  confidence?: number
+
   /** Scryfall card ID (used for art lookup + tracked-card key) */
   scryfallId?: string
 

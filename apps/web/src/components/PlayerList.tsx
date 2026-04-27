@@ -75,6 +75,8 @@ interface PlayerListProps {
   roomId?: string
   /** Number of seats the local user already occupies in this room (1 or 2) */
   ownSeatCount?: number
+  /** Role badges (emoji array) keyed by userId */
+  roleBadgesByUserId?: Map<string, string[]>
 }
 
 type RemovalAction = 'kick' | 'ban'
@@ -96,6 +98,7 @@ export function PlayerList({
   onResetGame,
   roomId,
   ownSeatCount = 1,
+  roleBadgesByUserId,
 }: PlayerListProps) {
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean
@@ -377,6 +380,11 @@ export function PlayerList({
                   >
                     {player.name}
                   </span>
+                  {roleBadgesByUserId?.get(player.id)?.map((badge, i) => (
+                    <span key={i} className="text-sm flex-shrink-0" title={badge}>
+                      {badge}
+                    </span>
+                  ))}
                   {isOwner && (
                     <Crown className="h-3 w-3 flex-shrink-0 text-warning" />
                   )}

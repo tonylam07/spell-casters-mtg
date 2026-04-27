@@ -14,6 +14,8 @@ import type * as constants from "../constants.js";
 import type * as crons from "../crons.js";
 import type * as env from "../env.js";
 import type * as errors from "../errors.js";
+import type * as gameEvents from "../gameEvents.js";
+import type * as gameState from "../gameState.js";
 import type * as http from "../http.js";
 import type * as playerResources from "../playerResources.js";
 import type * as players from "../players.js";
@@ -37,6 +39,8 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   env: typeof env;
   errors: typeof errors;
+  gameEvents: typeof gameEvents;
+  gameState: typeof gameState;
   http: typeof http;
   playerResources: typeof playerResources;
   players: typeof players;

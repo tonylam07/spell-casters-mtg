@@ -14,6 +14,7 @@ import { useMediaStreams } from '@/contexts/MediaStreamContext'
 import { usePresence } from '@/contexts/PresenceContext'
 import { useCardDetector } from '@/hooks/useCardDetector'
 import { useConvexWebRTC } from '@/hooks/useConvexWebRTC'
+import { useRoomGameState } from '@/hooks/useRoomGameState'
 import { useTrackedCards } from '@/hooks/useTrackedCards'
 import { useVideoOrientation } from '@/hooks/useVideoOrientation'
 import { useVideoStreamAttachment } from '@/hooks/useVideoStreamAttachment'
@@ -84,7 +85,8 @@ const VIDEO_ELEMENT_STYLE: React.CSSProperties = {
 
 // Memoized remote player component to prevent unnecessary re-renders
 interface RemotePlayerCardProps {
-  playerId: string
+  sessionId: string // WebRTC/stream/orientation key
+  playerId: string  // userId — for tracked cards and stats
   playerName: string
   participantData: Participant
   remoteStream: MediaStream | undefined
@@ -98,6 +100,8 @@ interface RemotePlayerCardProps {
   localParticipant: Participant | undefined
   gameRoomParticipants: Participant[]
   isOnline: boolean // Presence-based online status (matches sidebar)
+  isActiveTurn: boolean
+  roleBadges: string[]
   // Card detection props
   enableCardDetection: boolean
   detectorType?: DetectorType
@@ -106,6 +110,7 @@ interface RemotePlayerCardProps {
 }
 
 const RemotePlayerCard = memo(function RemotePlayerCard({
+  sessionId,
   playerId,
   playerName,
   participantData,
@@ -120,6 +125,8 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
   localParticipant,
   gameRoomParticipants,
   isOnline,
+  isActiveTurn,
+  roleBadges,
   enableCardDetection,
   detectorType,
   usePerspectiveWarp,
@@ -145,17 +152,17 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
     // Update local ref for card detector
     videoRef.current = element
 
-    // Update shared map for stream attachment
+    // Update shared map for stream attachment (keyed by sessionId)
     if (element) {
-      remoteVideoRefs.current.set(playerId, element)
+      remoteVideoRefs.current.set(sessionId, element)
     } else {
-      remoteVideoRefs.current.delete(playerId)
-      attachedStreamsRef.current.delete(playerId)
+      remoteVideoRefs.current.delete(sessionId)
+      attachedStreamsRef.current.delete(sessionId)
     }
   }
 
   const handleLoadedMetadata = () => {
-    const videoElement = remoteVideoRefs.current.get(playerId)
+    const videoElement = remoteVideoRefs.current.get(sessionId)
     if (
       videoElement &&
       remoteStream &&
@@ -166,7 +173,7 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
         videoElement.play().catch((error) => {
           if (error.name !== 'AbortError') {
             console.error(
-              `[VideoStreamGrid] Failed to play after metadata loaded for ${playerId}:`,
+              `[VideoStreamGrid] Failed to play after metadata loaded for ${sessionId}:`,
               error,
             )
           }
@@ -176,7 +183,7 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
   }
 
   const handleCanPlay = () => {
-    const videoElement = remoteVideoRefs.current.get(playerId)
+    const videoElement = remoteVideoRefs.current.get(sessionId)
     if (
       videoElement &&
       remoteStream &&
@@ -187,7 +194,7 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
         videoElement.play().catch((error) => {
           if (error.name !== 'AbortError') {
             console.error(
-              `[VideoStreamGrid] Failed to play on canPlay for ${playerId}:`,
+              `[VideoStreamGrid] Failed to play on canPlay for ${sessionId}:`,
               error,
             )
           }
@@ -197,13 +204,13 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
   }
 
   const handleVideoError = (e: React.SyntheticEvent<HTMLVideoElement>) => {
-    console.error(`[VideoStreamGrid] Video error for ${playerId}:`, e)
+    console.error(`[VideoStreamGrid] Video error for ${sessionId}:`, e)
   }
 
   const videoContainerRef = useRef<HTMLDivElement>(null)
 
-  // Per-tile rotation/mirror/zoom, keyed by participant id
-  const orientation = useVideoOrientation(`remote:${playerId}`)
+  // Per-tile rotation/mirror/zoom, keyed by session
+  const orientation = useVideoOrientation(`remote:${sessionId}`)
   const orientedContainerStyle = useMemo<React.CSSProperties>(
     () => ({ ...ORIENTED_CONTAINER_BASE, transform: orientation.transform }),
     [orientation.transform],
@@ -216,13 +223,10 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
     [allTrackedCards, playerId],
   )
 
-  // Click-to-identify: run CLIP recognition on whatever the detector last cropped
+  // Click-to-identify: reset consensus so the detector's next crop triggers a fresh query
   const cardQuery = useCardQueryContext()
   const handleIdentifyClick = () => {
-    const canvas = getCroppedCanvas()
-    if (!canvas) return
     cardQuery.resetConsensus()
-    void cardQuery.query(canvas)
   }
 
   // Shift+wheel to zoom this tile
@@ -235,9 +239,14 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
 
   return (
     <Card
-      className="flex h-full flex-col overflow-hidden border-surface-2 bg-surface-1"
+      className={`flex h-full flex-col overflow-hidden bg-surface-1 transition-shadow ${
+        isActiveTurn
+          ? 'border-violet-500/70 shadow-[0_0_0_2px_theme(colors.violet.500/40%)]'
+          : 'border-surface-2'
+      }`}
       data-testid="remote-player-card"
       data-player-id={playerId}
+      data-session-id={sessionId}
       data-player-name={playerName}
     >
       <div ref={videoContainerRef} className="min-h-0 bg-black relative flex-1">
@@ -305,6 +314,20 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
               videoContainerRef={videoContainerRef}
             />
           </>
+        )}
+
+        {roleBadges.length > 0 && (
+          <div className="left-2 top-2 gap-1 absolute z-10 flex flex-wrap">
+            {roleBadges.map((badge, i) => (
+              <span
+                key={i}
+                className="rounded px-1.5 py-0.5 text-sm backdrop-blur-sm bg-black/40"
+                title={badge}
+              >
+                {badge}
+              </span>
+            ))}
+          </div>
         )}
 
         <div className="right-3 top-3 gap-2 absolute z-10 flex">
@@ -474,6 +497,8 @@ interface VideoStreamGridProps {
   roomId: string
   userId: string
   localPlayerName: string
+  /** userId of whoever has the active turn (from TurnTracker) */
+  currentTurnUserId?: string | null
   // Card detection
   /** Detector type to use (opencv, detr, owl-vit) */
   detectorType?: DetectorType
@@ -493,7 +518,8 @@ interface StreamState {
 }
 
 interface RemoteGridSession {
-  id: string
+  sessionId: string
+  id: string // userId — for data queries (tracked cards, stats)
   name: string
   participantData: Participant
   remoteStream: MediaStream | undefined
@@ -504,20 +530,21 @@ interface RemoteGridSession {
   isOnline: boolean
 }
 
-function buildRemotePlayerIds(participants: Participant[], userId: string) {
+function buildRemoteSessionIds(participants: Participant[], localSessionId: string) {
   return participants
-    .filter((participant) => participant.id !== userId)
-    .map((participant) => participant.id)
+    .filter((participant) => participant.sessionId !== localSessionId)
+    .map((participant) => participant.sessionId)
 }
 
 function buildRemotePlayers(
   participants: Participant[],
-  localPlayerName: string,
+  localSessionId: string,
 ) {
   return participants
-    .filter((participant) => participant.username !== localPlayerName)
+    .filter((participant) => participant.sessionId !== localSessionId)
     .map((participant) => ({
-      id: participant.id,
+      sessionId: participant.sessionId,
+      id: participant.id, // userId
       name: participant.username,
       participantData: participant,
     }))
@@ -537,6 +564,7 @@ function buildRemoteGridSessions({
   now,
 }: {
   players: Array<{
+    sessionId: string
     id: string
     name: string
     participantData: Participant
@@ -549,21 +577,22 @@ function buildRemoteGridSessions({
   now: number
 }): RemoteGridSession[] {
   return players.map((player) => {
-    const fallbackState = streamStates[player.id] || {
+    const fallbackState = streamStates[player.sessionId] || {
       video: true,
       audio: true,
     }
-    const trackState = trackStates.get(player.id)
+    const trackState = trackStates.get(player.sessionId)
 
     return {
+      sessionId: player.sessionId,
       id: player.id,
       name: player.name,
       participantData: player.participantData,
-      remoteStream: remoteStreams.get(player.id),
-      connectionState: connectionStates.get(player.id),
+      remoteStream: remoteStreams.get(player.sessionId),
+      connectionState: connectionStates.get(player.sessionId),
       peerVideoEnabled: trackState?.videoEnabled ?? fallbackState.video,
       peerAudioEnabled: trackState?.audioEnabled ?? fallbackState.audio,
-      isMuted: mutedPlayers.has(player.id),
+      isMuted: mutedPlayers.has(player.sessionId),
       isOnline: isParticipantOnline(player.participantData.lastSeenAt, now),
     }
   })
@@ -573,6 +602,7 @@ export function VideoStreamGrid({
   roomId,
   userId,
   localPlayerName,
+  currentTurnUserId,
   detectorType,
   usePerspectiveWarp = true,
   onCardCrop,
@@ -581,9 +611,11 @@ export function VideoStreamGrid({
 }: VideoStreamGridProps) {
   const enableCardDetection = !!detectorType
 
-  // Get participants from context (already deduplicated)
+  // Get participants from context — all sessions (for grid) and deduplicated (for stats)
   const {
+    participants,
     uniqueParticipants: gameRoomParticipants,
+    sessionId: localSessionId,
     isLoading: isPresenceLoading,
     roomSeatCount,
   } = usePresence()
@@ -604,10 +636,19 @@ export function VideoStreamGrid({
     return () => clearInterval(interval)
   }, [])
 
-  // Compute remote player IDs for WebRTC
+  // Map sessionId → userId for signal routing (sent into useConvexWebRTC → signaling)
+  const sessionUserIdMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const p of participants) {
+      map.set(p.sessionId, p.id)
+    }
+    return map
+  }, [participants])
+
+  // Remote session IDs for WebRTC — one connection per session (supports linked seats)
   const remotePlayerIds = useMemo(
-    () => buildRemotePlayerIds(gameRoomParticipants, userId),
-    [gameRoomParticipants, userId],
+    () => buildRemoteSessionIds(participants, localSessionId),
+    [participants, localSessionId],
   )
 
   // --- Local Media Management (from context) ---
@@ -642,10 +683,12 @@ export function VideoStreamGrid({
     isInitialized: _isInitialized,
   } = useConvexWebRTC({
     localPlayerId: userId,
+    localSessionId,
+    sessionUserIdMap,
     remotePlayerIds,
     roomId: roomId,
-    localStream, // Pass the managed local stream
-    presenceReady, // Wait for presence before initializing signaling
+    localStream,
+    presenceReady,
     onError: (error: Error) => {
       console.error('[VideoStreamGrid] WebRTC error:', error)
       toast.error(error.message)
@@ -656,9 +699,26 @@ export function VideoStreamGrid({
   const localStreamError = videoError || audioError
   const isLocalStreamPending = isVideoPending || isAudioPending
 
+  // Room game state for role badges
+  const roomGameState = useRoomGameState(roomId)
+
+  // Compute role badges (emoji) for a given userId
+  const getRoleBadges = useMemo(() => {
+    return (userId: string): string[] => {
+      if (!roomGameState) return []
+      const badges: string[] = []
+      if (roomGameState.monarchUserId === userId) badges.push('👑')
+      if (roomGameState.initiativeUserId === userId) badges.push('⚔️')
+      if (roomGameState.thRingBearerUserId === userId) badges.push('💍')
+      if (roomGameState.citysBlessingUserIds.includes(userId)) badges.push('✨')
+      return badges
+    }
+  }, [roomGameState])
+
+  // Use all sessions so linked seats (dual-cam) each get their own tile
   const players = useMemo(
-    () => buildRemotePlayers(gameRoomParticipants, localPlayerName),
-    [gameRoomParticipants, localPlayerName],
+    () => buildRemotePlayers(participants, localSessionId),
+    [participants, localSessionId],
   )
 
   const localParticipant = useMemo(
@@ -671,7 +731,7 @@ export function VideoStreamGrid({
       players.reduce(
         (acc, player) => ({
           ...acc,
-          [player.id]: { video: true, audio: true },
+          [player.sessionId]: { video: true, audio: true },
         }),
         {},
       ),
@@ -817,26 +877,46 @@ export function VideoStreamGrid({
             </div>
           </div>
         ) : (
-          <LocalVideoCard
-            stream={localStream}
-            enableCardDetection={enableCardDetection}
-            detectorType={detectorType}
-            usePerspectiveWarp={usePerspectiveWarp}
-            onCardCrop={onCardCrop}
-            roomId={roomId}
-            participant={localParticipant}
-            currentUser={localParticipant}
-            participants={gameRoomParticipants}
-            gridIndex={0}
-          />
+          <div
+            className={`h-full relative rounded-lg transition-shadow ${
+              currentTurnUserId && localParticipant && currentTurnUserId === localParticipant.id
+                ? 'shadow-[0_0_0_2px_theme(colors.violet.500/40%)] ring-2 ring-violet-500/70'
+                : ''
+            }`}
+          >
+            {localParticipant && getRoleBadges(localParticipant.id).length > 0 && (
+              <div className="left-2 top-2 gap-1 absolute z-20 flex flex-wrap">
+                {getRoleBadges(localParticipant.id).map((badge, i) => (
+                  <span key={i} className="rounded px-1.5 py-0.5 text-sm backdrop-blur-sm bg-black/40">
+                    {badge}
+                  </span>
+                ))}
+              </div>
+            )}
+            <LocalVideoCard
+              stream={localStream}
+              enableCardDetection={enableCardDetection}
+              detectorType={detectorType}
+              usePerspectiveWarp={usePerspectiveWarp}
+              onCardCrop={onCardCrop}
+              roomId={roomId}
+              participant={localParticipant}
+              currentUser={localParticipant}
+              participants={gameRoomParticipants}
+              gridIndex={0}
+            />
+          </div>
         )}
 
         {/* Render remote players */}
         {remoteSessions.map((player) => (
           <RemotePlayerCard
-            key={player.id}
+            key={player.sessionId}
+            sessionId={player.sessionId}
             playerId={player.id}
             playerName={player.name}
+            isActiveTurn={!!currentTurnUserId && player.id === currentTurnUserId}
+            roleBadges={getRoleBadges(player.id)}
             participantData={player.participantData}
             remoteStream={player.remoteStream}
             connectionState={player.connectionState}
