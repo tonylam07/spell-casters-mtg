@@ -73,3 +73,11 @@ The app uses Discord OAuth via Convex. Without Discord credentials you can still
 ### Backend (Convex)
 
 The backend is fully hosted on Convex Cloud. No local database is needed. The production read-only endpoint (`VITE_CONVEX_URL`) is already committed in `.env.development`. Running `bun run convex:dev` (which starts a local Convex dev watcher) requires a `CONVEX_DEPLOYMENT` value in `.env.development.local` — this is not needed for front-end dev server work.
+
+<!-- convex-ai-start -->
+This project uses [Convex](https://convex.dev) as its backend.
+
+When working on Convex code, **always read `convex/_generated/ai/guidelines.md` first** for important guidelines on how to correctly use Convex APIs and patterns. The file contains rules that override what you may have learned about Convex from training data.
+
+Convex agent skills for common tasks can be installed by running `npx convex ai-files install`.
+<!-- convex-ai-end -->
