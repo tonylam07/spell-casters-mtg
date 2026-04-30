@@ -14,7 +14,9 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useCardQueryContext } from '@/contexts/CardQueryContext'
 import { useCommanderDamageDialog } from '@/contexts/CommanderDamageDialogContext'
 import { usePresence } from '@/contexts/PresenceContext'
-import { History, PanelLeft, Trash2 } from 'lucide-react'
+import { api } from '@convex/_generated/api'
+import { useQuery } from 'convex/react'
+import { Heart, History, PanelLeft, Trash2 } from 'lucide-react'
 
 import { Button } from '@repo/ui/components/button'
 import { Card } from '@repo/ui/components/card'
@@ -35,6 +37,7 @@ import {
 import { CardPreview } from './CardPreview'
 import { GameStatsPanel } from './GameStatsPanel'
 import { PlayerList } from './PlayerList'
+import { TurnTracker } from './TurnTracker'
 
 /**
  * Shared sidebar card component with header and content
@@ -224,6 +227,63 @@ function CardHistoryList({
 }
 
 /**
+ * Life history list — shows the last 30 life change events for the room
+ */
+function LifeHistoryList({ roomId }: { roomId: string }) {
+  const events = useQuery(api.gameEvents.getLifeHistory, { roomId })
+
+  return (
+    <SidebarCard
+      icon={Heart}
+      title="Life History"
+      count={`(${events?.length ?? 0})`}
+      maxHeight="max-h-48"
+    >
+      {!events || events.length === 0 ? (
+        <div className="px-3 py-4 text-center text-xs text-text-muted">
+          No life changes yet
+        </div>
+      ) : (
+        events.map((event: { _id: string; createdAt: number; payload: unknown }) => {
+          const p = event.payload as {
+            username: string
+            delta: number
+            newTotal: number
+          }
+          const isGain = p.delta > 0
+          const deltaLabel = isGain ? `+${p.delta}` : `${p.delta}`
+          const ts = new Date(event.createdAt).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          })
+          return (
+            <div
+              key={event._id}
+              className="gap-2 px-3 py-1.5 flex items-center border-b border-surface-2/50 last:border-0"
+            >
+              <span className="min-w-0 flex-1 truncate text-xs text-text-secondary">
+                {p.username}
+              </span>
+              <span
+                className={`text-xs font-medium tabular-nums ${isGain ? 'text-green-400' : 'text-red-400'}`}
+              >
+                {deltaLabel}
+              </span>
+              <span className="text-xs text-text-muted tabular-nums">
+                → {p.newTotal}
+              </span>
+              <span className="text-xs text-text-muted/60 tabular-nums">
+                {ts}
+              </span>
+            </div>
+          )
+        })
+      )}
+    </SidebarCard>
+  )
+}
+
+/**
  * Threshold for considering a player "online" (15 seconds)
  * If lastSeenAt is older than this, they're shown as disconnected.
  * This is shorter than the 30-second presence threshold that removes them from the list entirely.
@@ -370,6 +430,9 @@ function SidebarContent({
   const sidebarContent = (
     <>
       <div className="flex-shrink-0">
+        <TurnTracker roomId={roomId} />
+      </div>
+      <div className="flex-shrink-0">
         <PlayerList
           players={playersWithStatus}
           isLobbyOwner={isLobbyOwner}
@@ -400,6 +463,9 @@ function SidebarContent({
           onClear={clearHistory}
           onRemove={removeFromHistory}
         />
+      </div>
+      <div className="flex-shrink-0">
+        <LifeHistoryList roomId={roomId} />
       </div>
     </>
   )

@@ -38,6 +38,12 @@ export default defineSchema({
     seatCount: v.optional(v.number()),
     /** Last time any activity occurred in the room (joins, leaves, state changes) */
     lastActivityAt: v.optional(v.number()),
+    /** Increments each time advanceTurn fires */
+    turnCount: v.optional(v.number()),
+    /** Resets to 0 each advanceTurn; incremented manually by players */
+    stormCount: v.optional(v.number()),
+    /** The userId whose turn it currently is */
+    currentTurnUserId: v.optional(v.string()),
   })
     .index('by_roomId', ['roomId'])
     .index('by_ownerId', ['ownerId'])
@@ -196,4 +202,27 @@ export default defineSchema({
     /** Last heartbeat timestamp (for presence TTL) */
     lastSeenAt: v.number(),
   }).index('by_userId', ['userId']),
+
+  /**
+   * roomEvents - Audit log of in-game events
+   *
+   * Used for life total history, turn changes, etc.
+   * Ordered by createdAt; query with by_room index and filter by type.
+   */
+  roomEvents: defineTable({
+    /** Reference to room */
+    roomId: v.string(),
+    /** Event type */
+    type: v.union(
+      v.literal('life_change'),
+      v.literal('turn_change'),
+      v.literal('dice_roll'),
+      v.literal('join'),
+      v.literal('leave'),
+    ),
+    /** Event-specific data */
+    payload: v.any(),
+    /** When the event occurred */
+    createdAt: v.number(),
+  }).index('by_room', ['roomId']),
 })

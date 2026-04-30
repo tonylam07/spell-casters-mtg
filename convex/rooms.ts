@@ -592,6 +592,19 @@ export const updatePlayerHealth = mutation({
       })
     }
 
+    // Log life change event for history
+    await ctx.db.insert('roomEvents', {
+      roomId,
+      type: 'life_change',
+      payload: {
+        userId,
+        username: player.username,
+        delta,
+        newTotal: nextHealth,
+      },
+      createdAt: Date.now(),
+    })
+
     // Update room activity
     await updateRoomActivity(ctx, roomId)
   },
