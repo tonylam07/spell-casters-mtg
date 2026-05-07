@@ -4,7 +4,9 @@ import {
   loadOpenCV,
   refineCardEdges,
 } from '@/lib/card-edge-refiner'
+import { useTrackedCards } from '@/hooks/useTrackedCards'
 import { AlertCircle, Camera, CheckCircle2, Scan, X } from 'lucide-react'
+import { toast } from 'sonner'
 
 import type { CardMatch } from '@repo/card-detection'
 import { identifyCard } from '@repo/card-detection'
@@ -12,6 +14,7 @@ import { Button } from '@repo/ui/components/button'
 import { Card } from '@repo/ui/components/card'
 
 interface CardScannerProps {
+  roomId: string
   onClose: () => void
 }
 
@@ -105,7 +108,8 @@ function computeGuideCrop(
   return { sx, sy, sw, sh }
 }
 
-export function CardScanner({ onClose }: CardScannerProps) {
+export function CardScanner({ roomId, onClose }: CardScannerProps) {
+  const { trackCard } = useTrackedCards(roomId)
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -295,8 +299,15 @@ export function CardScanner({ onClose }: CardScannerProps) {
     }
   }, [cameraReady, scanning])
 
-  const handleAddToBattlefield = () => {
-    // TODO: wire to game state once battlefield store is decided
+  const handleAddToBattlefield = async () => {
+    if (!recognizedCard?.scryfallId) return
+    try {
+      await trackCard(recognizedCard.scryfallId, recognizedCard.name)
+      toast.success(`Tracking "${recognizedCard.name}"`, { duration: 2500 })
+    } catch (error) {
+      console.error('[CardScanner] trackCard failed:', error)
+      toast.error('Failed to track card')
+    }
     setRecognizedCard(null)
     onClose()
   }
