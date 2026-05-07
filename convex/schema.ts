@@ -224,5 +224,9 @@ export default defineSchema({
     payload: v.any(),
     /** When the event occurred */
     createdAt: v.number(),
+    /** Legacy: userId that triggered the event (now stored in payload) */
+    userId: v.optional(v.string()),
+    /** Legacy: username that triggered the event (now stored in payload) */
+    username: v.optional(v.string()),
   }).index('by_room', ['roomId']),
 })
