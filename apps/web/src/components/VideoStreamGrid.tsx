@@ -703,9 +703,9 @@ export function VideoStreamGrid({
   // Find local player (not currently used but may be needed for future features)
   // const localPlayer = players.find((p) => p.name === localPlayerName)
 
-  // Always show 2x2 grid for 4 player slots
+  // Responsive grid: single column on mobile, 2x2 on tablet+
   const getGridClass = () => {
-    return 'grid-cols-1 grid-rows-2 lg:grid-cols-2 lg:grid-rows-2'
+    return 'grid-cols-1 auto-rows-[minmax(200px,1fr)] md:grid-cols-2 md:grid-rows-2'
   }
 
   // Calculate empty slots needed (total seatCount slots: 1 local + up to seatCount-1 remote)
@@ -729,7 +729,7 @@ export function VideoStreamGrid({
 
   return (
     <LazyMotion features={domAnimation}>
-      <div className={`grid ${getGridClass()} gap-4 h-full items-stretch`}>
+      <div className={`grid ${getGridClass()} gap-4 h-full overflow-y-auto md:overflow-hidden items-stretch`}>
         {/* Render local player with permission gate, loading state, or video */}
         {isCheckingPermissions ? (
           <div className="border-default flex h-full items-center justify-center rounded-lg border bg-surface-2/50">

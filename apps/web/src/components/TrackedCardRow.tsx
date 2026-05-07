@@ -29,6 +29,7 @@ interface TrackedCardRowProps {
   editable: boolean
   onBump?: (type: CounterKey, delta: number) => void
   onUntrack?: () => void
+  onClick?: () => void
 }
 
 const SCRYFALL_ART = (id: string) =>
@@ -42,35 +43,42 @@ export function TrackedCardRow({
   editable,
   onBump,
   onUntrack,
+  onClick,
 }: TrackedCardRowProps) {
   const activeKeys = COUNTER_KEYS.filter((k) => (counters[k] ?? 0) > 0)
 
   const row = (
     <div className="gap-2 px-2 py-1 flex items-center rounded-md bg-surface-2/60">
-      <img
-        src={SCRYFALL_ART(scryfallId)}
-        alt={name}
-        className="h-10 w-14 rounded object-cover"
-        loading="lazy"
-      />
-      <div className="min-w-0 flex-1">
-        <div className="text-xs font-medium text-white truncate">{name}</div>
-        <div className="mt-0.5 gap-1 flex flex-wrap">
-          {activeKeys.length === 0 && (
-            <span className="text-[10px] text-text-muted italic">
-              no counters
-            </span>
-          )}
-          {activeKeys.map((key) => (
-            <CounterBadge
-              key={key}
-              type={key}
-              count={counters[key] ?? 0}
-              editable={editable}
-              onChange={(delta) => onBump?.(key, delta)}
-            />
-          ))}
+      <button
+        type="button"
+        onClick={onClick}
+        className="gap-2 flex items-center min-w-0 text-left hover:opacity-80 transition-opacity"
+      >
+        <img
+          src={SCRYFALL_ART(scryfallId)}
+          alt={name}
+          className="h-10 w-14 shrink-0 rounded object-cover"
+          loading="lazy"
+        />
+        <div className="min-w-0">
+          <div className="text-xs font-medium text-white truncate">{name}</div>
         </div>
+      </button>
+      <div className="ml-auto mt-0.5 gap-1 flex flex-wrap shrink-0">
+        {activeKeys.length === 0 && (
+          <span className="text-[10px] text-text-muted italic">
+            no counters
+          </span>
+        )}
+        {activeKeys.map((key) => (
+          <CounterBadge
+            key={key}
+            type={key}
+            count={counters[key] ?? 0}
+            editable={editable}
+            onChange={(delta) => onBump?.(key, delta)}
+          />
+        ))}
       </div>
     </div>
   )
