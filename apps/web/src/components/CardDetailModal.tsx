@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ExternalLink, Loader2, Trash2 } from 'lucide-react'
+import { ExternalLink, Trash2 } from 'lucide-react'
 
 import { Button } from '@repo/ui/components/button'
 import {
