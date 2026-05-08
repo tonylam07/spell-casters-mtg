@@ -60,8 +60,8 @@ function logDebugBlobUrl(
 // Detection State
 // ============================================================================
 
-const AUTO_SCAN_INTERVAL_MS = 700 // Detection poll rate
-const AUTO_CROP_COOLDOWN_MS = 2500 // Min time between auto-recognition fires
+const AUTO_SCAN_INTERVAL_MS = 500 // Detection poll rate (was 700)
+const AUTO_CROP_COOLDOWN_MS = 1500 // Min time between auto-recognition fires (was 2500)
 
 let detector: CardDetector | null = null
 let currentDetectorType: DetectorType | undefined = undefined
@@ -85,7 +85,7 @@ let currentFullResCanvas: HTMLCanvasElement | null = null
 // Click Handling State
 // ============================================================================
 
-const CLICK_DEBOUNCE_MS = 2000 // Minimum time between clicks (2 seconds)
+const CLICK_DEBOUNCE_MS = 1000 // Minimum time between clicks (was 2 seconds)
 
 // Use global state to prevent multiple HMR instances from processing clicks concurrently
 declare global {
