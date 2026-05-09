@@ -31,7 +31,7 @@ export const PlayerVideoCard = memo(
     ref,
   ) {
     return (
-      <Card className="flex h-full flex-col overflow-hidden border-surface-2 bg-surface-1">
+      <Card className="flex flex-col overflow-hidden border-surface-2 bg-surface-1 aspect-video md:aspect-auto md:h-full">
         <div ref={ref} className="min-h-0 bg-black relative flex-1">
           {children}
         </div>

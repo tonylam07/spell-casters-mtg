@@ -380,11 +380,16 @@ export function useConvexPresence({
   }, [participants])
 
   // Detect duplicate sessions (same userId, different sessionId)
+  // Skip detection if this session is an intentional linked seat or camera replacement
   const duplicateSessions = useMemo(() => {
+    if (intentionalDuplicate || replaceCamera) return []
     return participants.filter(
-      (p) => p.id === userId && p.sessionId !== sessionId,
+      (p) =>
+        p.id === userId &&
+        p.sessionId !== sessionId &&
+        !p.isLinkedSeat, // Don't count linked seats (tabletop cameras etc.) as duplicates
     )
-  }, [participants, userId, sessionId])
+  }, [participants, userId, sessionId, intentionalDuplicate, replaceCamera])
 
   const hasDuplicateSession = duplicateSessions.length > 0
 

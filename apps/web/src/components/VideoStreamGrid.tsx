@@ -241,7 +241,7 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
 
   return (
     <Card
-      className="flex h-full flex-col overflow-hidden border-surface-2 bg-surface-1"
+      className="flex flex-col overflow-hidden border-surface-2 bg-surface-1 aspect-video md:aspect-auto md:h-full"
       data-testid="remote-player-card"
       data-player-id={playerId}
       data-player-name={playerName}
@@ -452,7 +452,7 @@ const TestStreamSlot = memo(function TestStreamSlot({
   })
 
   return (
-    <Card className="flex h-full flex-col overflow-hidden border-surface-2 bg-surface-1">
+    <Card className="flex flex-col overflow-hidden border-surface-2 bg-surface-1 aspect-video md:aspect-auto md:h-full">
       <div className="min-h-0 bg-black relative flex-1">
         {testStream ? (
           <>
@@ -757,29 +757,28 @@ export function VideoStreamGrid({
   const visibleTileCount =
     (isLocalHidden ? 0 : 1) + visibleRemoteSessions.length
 
-  // Find local player (not currently used but may be needed for future features)
-  // const localPlayer = players.find((p) => p.name === localPlayerName)
-
-  // Responsive grid: adapts to the number of visible tiles
-  const getGridClass = (visibleCount: number) => {
-    switch (visibleCount) {
-      case 0:
-      case 1:
-        return 'grid-cols-1 auto-rows-[minmax(300px,1fr)]'
-      case 2:
-        return 'grid-cols-1 auto-rows-[minmax(200px,1fr)] md:grid-cols-2 md:grid-rows-1'
-      case 3:
-        return 'grid-cols-1 auto-rows-[minmax(200px,1fr)] md:grid-cols-2 md:auto-rows-[minmax(200px,1fr)]'
-      default:
-        return 'grid-cols-1 auto-rows-[minmax(200px,1fr)] md:grid-cols-2 md:grid-rows-2'
-    }
-  }
-
   // Calculate empty slots needed (total seatCount slots: 1 local + up to seatCount-1 remote)
   const maxRemoteSlots = roomSeatCount - 1
   const emptySlots = hiddenTiles.size > 0
     ? 0 // Don't show empty placeholders when user is actively hiding tiles
     : Math.max(0, maxRemoteSlots - players.length)
+
+  // Total rendered items in the grid (visible tiles + empty slots; test stream replaces one empty slot)
+  const totalRenderedItems = visibleTileCount + emptySlots
+
+  // Responsive grid: always 2×2 on desktop for 3–4 items, adapts for fewer
+  const getGridClass = (totalItems: number) => {
+    switch (totalItems) {
+      case 0:
+      case 1:
+        return 'grid-cols-1 grid-rows-1'
+      case 2:
+        return 'grid-cols-1 md:grid-cols-2 md:grid-rows-1'
+      default:
+        // 3 or 4 items → 2×2 grid on desktop
+        return 'grid-cols-1 md:grid-cols-2 md:grid-rows-2'
+    }
+  }
 
   // Store refs for remote video elements
   const remoteVideoRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
@@ -798,7 +797,7 @@ export function VideoStreamGrid({
 
   return (
     <LazyMotion features={domAnimation}>
-      <div className={`grid ${getGridClass(visibleTileCount)} gap-4 h-full overflow-y-auto md:overflow-hidden items-stretch relative`}>
+      <div className={`grid ${getGridClass(totalRenderedItems)} gap-2 md:gap-3 h-full overflow-y-auto md:overflow-hidden relative`}>
         {/* Render local player with permission gate, loading state, or video */}
         {!isLocalHidden && (
           <>
@@ -947,7 +946,7 @@ export function VideoStreamGrid({
         }).map((_, index) => (
           <Card
             key={`empty-slot-${index}`}
-            className="border-default flex h-full flex-col overflow-hidden border-dashed bg-surface-1/50"
+            className="border-default flex flex-col overflow-hidden border-dashed bg-surface-1/50 aspect-video md:aspect-auto md:h-full"
           >
             <div className="min-h-0 relative flex flex-1 items-center justify-center bg-surface-0/50">
               <div className="space-y-4 text-center">
