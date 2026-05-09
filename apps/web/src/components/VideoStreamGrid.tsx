@@ -3,6 +3,7 @@ import type { Participant } from '@/types/participant'
 import {
   memo,
   Suspense,
+  useCallback,
   useEffect,
   useEffectEvent,
   useMemo,
@@ -25,6 +26,8 @@ import { attachVideoStream } from '@/lib/video-stream-utils'
 import { domAnimation, LazyMotion, m } from 'framer-motion'
 import {
   AlertCircle,
+  Eye,
+  EyeOff,
   Gamepad2,
   Loader2,
   MicOff,
@@ -34,6 +37,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 
+import { Button } from '@repo/ui/components/button'
 import { Card } from '@repo/ui/components/card'
 import {
   Tooltip,
@@ -103,6 +107,7 @@ interface RemotePlayerCardProps {
   detectorType?: DetectorType
   usePerspectiveWarp: boolean
   onCardCrop?: (canvas: HTMLCanvasElement) => void
+  onToggleVisibility?: () => void
 }
 
 const RemotePlayerCard = memo(function RemotePlayerCard({
@@ -124,6 +129,7 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
   detectorType,
   usePerspectiveWarp,
   onCardCrop,
+  onToggleVisibility,
 }: RemotePlayerCardProps) {
   // Local video ref for card detection (separate from the shared remoteVideoRefs map)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -308,6 +314,25 @@ const RemotePlayerCard = memo(function RemotePlayerCard({
         )}
 
         <div className="right-3 top-3 gap-2 absolute z-10 flex">
+          {onToggleVisibility && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onToggleVisibility()
+                  }}
+                  className="h-9 w-9 backdrop-blur-sm flex items-center justify-center rounded-lg border border-surface-2 bg-surface-0/50 text-text-muted transition-colors hover:text-white"
+                >
+                  <EyeOff className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Hide this feed</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
           {!peerAudioEnabled && (
             <div className="h-9 w-9 backdrop-blur-sm flex items-center justify-center rounded-lg border border-destructive/30 bg-destructive/20">
               <MicOff className="h-4 w-4 text-destructive" />
@@ -700,17 +725,61 @@ export function VideoStreamGrid({
     ],
   )
 
+  // Feed visibility: local-only set of hidden session IDs
+  const [hiddenTiles, setHiddenTiles] = useState<Set<string>>(new Set())
+
+  const toggleTileVisibility = useCallback((sessionId: string) => {
+    setHiddenTiles((prev) => {
+      const next = new Set(prev)
+      if (next.has(sessionId)) {
+        next.delete(sessionId)
+      } else {
+        next.add(sessionId)
+      }
+      return next
+    })
+  }, [])
+
+  const showAllTiles = useCallback(() => {
+    setHiddenTiles(new Set())
+  }, [])
+
+  // Filter remote sessions to only visible ones
+  const visibleRemoteSessions = useMemo(
+    () => remoteSessions.filter((s) => !hiddenTiles.has(s.id)),
+    [remoteSessions, hiddenTiles],
+  )
+
+  // Local tile can also be hidden
+  const isLocalHidden = hiddenTiles.has('__local__')
+
+  // Count visible tiles: local (if not hidden) + visible remote sessions
+  const visibleTileCount =
+    (isLocalHidden ? 0 : 1) + visibleRemoteSessions.length
+
   // Find local player (not currently used but may be needed for future features)
   // const localPlayer = players.find((p) => p.name === localPlayerName)
 
-  // Responsive grid: single column on mobile, 2x2 on tablet+
-  const getGridClass = () => {
-    return 'grid-cols-1 auto-rows-[minmax(200px,1fr)] md:grid-cols-2 md:grid-rows-2'
+  // Responsive grid: adapts to the number of visible tiles
+  const getGridClass = (visibleCount: number) => {
+    switch (visibleCount) {
+      case 0:
+      case 1:
+        return 'grid-cols-1 auto-rows-[minmax(300px,1fr)]'
+      case 2:
+        return 'grid-cols-1 auto-rows-[minmax(200px,1fr)] md:grid-cols-2 md:grid-rows-1'
+      case 3:
+        return 'grid-cols-1 auto-rows-[minmax(200px,1fr)] md:grid-cols-2 md:auto-rows-[minmax(200px,1fr)]'
+      default:
+        return 'grid-cols-1 auto-rows-[minmax(200px,1fr)] md:grid-cols-2 md:grid-rows-2'
+    }
   }
 
   // Calculate empty slots needed (total seatCount slots: 1 local + up to seatCount-1 remote)
   const maxRemoteSlots = roomSeatCount - 1
-  const emptySlots = Math.max(0, maxRemoteSlots - players.length)
+  const emptySlots = hiddenTiles.size > 0
+    ? 0 // Don't show empty placeholders when user is actively hiding tiles
+    : Math.max(0, maxRemoteSlots - players.length)
 
   // Store refs for remote video elements
   const remoteVideoRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
@@ -729,8 +798,10 @@ export function VideoStreamGrid({
 
   return (
     <LazyMotion features={domAnimation}>
-      <div className={`grid ${getGridClass()} gap-4 h-full overflow-y-auto md:overflow-hidden items-stretch`}>
+      <div className={`grid ${getGridClass(visibleTileCount)} gap-4 h-full overflow-y-auto md:overflow-hidden items-stretch relative`}>
         {/* Render local player with permission gate, loading state, or video */}
+        {!isLocalHidden && (
+          <>
         {isCheckingPermissions ? (
           <div className="border-default flex h-full items-center justify-center rounded-lg border bg-surface-2/50">
             <div className="space-y-3 flex flex-col items-center">
@@ -830,9 +901,11 @@ export function VideoStreamGrid({
             gridIndex={0}
           />
         )}
+          </>
+        )}
 
         {/* Render remote players */}
-        {remoteSessions.map((player) => (
+        {visibleRemoteSessions.map((player) => (
           <RemotePlayerCard
             key={player.id}
             playerId={player.id}
@@ -853,6 +926,7 @@ export function VideoStreamGrid({
             detectorType={detectorType}
             usePerspectiveWarp={usePerspectiveWarp}
             onCardCrop={onCardCrop}
+            onToggleVisibility={() => toggleTileVisibility(player.id)}
           />
         ))}
 
@@ -913,6 +987,21 @@ export function VideoStreamGrid({
             </div>
           </Card>
         ))}
+
+        {/* Show All button — appears when any tiles are hidden */}
+        {hiddenTiles.size > 0 && (
+          <div className="col-span-full flex justify-center py-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={showAllTiles}
+              className="gap-2 border-surface-2 text-text-muted hover:text-white"
+            >
+              <Eye className="h-4 w-4" />
+              Show all ({hiddenTiles.size} hidden)
+            </Button>
+          </div>
+        )}
       </div>
     </LazyMotion>
   )
