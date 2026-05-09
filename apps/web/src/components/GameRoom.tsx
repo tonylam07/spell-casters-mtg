@@ -44,6 +44,8 @@ interface GameRoomProps {
   seatLabel?: string
   /** True when this tab is intentionally joining as a second seat */
   intentionalDuplicate?: boolean
+  /** True when phone is replacing the desktop webcam */
+  replaceCamera?: boolean
 }
 
 function GameRoomContent({
@@ -459,6 +461,7 @@ function GameRoomWithPresence({
   showTestStream,
   seatLabel,
   intentionalDuplicate,
+  replaceCamera,
 }: Omit<GameRoomProps, 'playerName'>) {
   const handleDuplicateSession = useCallback(() => {
     console.log('[GameRoom] Duplicate session detected, showing dialog')
@@ -481,6 +484,7 @@ function GameRoomWithPresence({
       roomId={roomId}
       seatLabel={seatLabel}
       intentionalDuplicate={intentionalDuplicate}
+      replaceCamera={replaceCamera}
       onDuplicateSession={handleDuplicateSession}
       onSessionTransferred={handleSessionTransferred}
     >

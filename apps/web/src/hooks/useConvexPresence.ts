@@ -30,6 +30,8 @@ interface UseConvexPresenceProps {
   seatLabel?: string
   /** True when this tab is intentionally joining as a second seat */
   intentionalDuplicate?: boolean
+  /** True when phone is replacing the desktop webcam */
+  replaceCamera?: boolean
   /** Called when kicked (temporary - can rejoin) */
   onKicked?: () => void
   /** Called when banned (permanent - cannot rejoin) */
@@ -107,6 +109,7 @@ export function useConvexPresence({
   enabled = true,
   seatLabel,
   intentionalDuplicate,
+  replaceCamera,
   onKicked,
   onBanned,
   onDuplicateSession,
@@ -267,6 +270,7 @@ export function useConvexPresence({
         audioEnabled: true,
         videoEnabled: true,
         ...(intentionalDuplicate ? { intentionalDuplicate: true } : {}),
+        ...(replaceCamera ? { replaceCamera: true } : {}),
         ...(seatLabel ? { seatLabel } : {}),
       })
       .then(() => {

@@ -74,6 +74,8 @@ interface PresenceProviderProps {
   seatLabel?: string
   /** True when this tab is intentionally joining as a second seat */
   intentionalDuplicate?: boolean
+  /** True when phone is replacing the desktop webcam */
+  replaceCamera?: boolean
   /** Called when a duplicate session is detected */
   onDuplicateSession?: (existingSessionId: string) => void
   /** Called when this session should be closed (transfer happened in another tab) */
@@ -85,6 +87,7 @@ export function PresenceProvider({
   children,
   seatLabel,
   intentionalDuplicate,
+  replaceCamera,
   onDuplicateSession,
   onSessionTransferred,
 }: PresenceProviderProps) {
@@ -133,6 +136,7 @@ export function PresenceProvider({
     avatar,
     seatLabel,
     intentionalDuplicate,
+    replaceCamera,
     enabled: isConnected,
     onKicked: handleKicked,
     onBanned: handleBanned,
