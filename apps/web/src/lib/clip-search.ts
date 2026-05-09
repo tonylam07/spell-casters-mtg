@@ -917,6 +917,59 @@ export function top1(q: Float32Array): (CardMeta & { score: number }) | null {
 }
 
 /**
+ * Deck-scoped search: only checks embeddings for cards in the player's deck.
+ * Returns the best match if score > threshold, otherwise null (caller should
+ * fall back to full top1).
+ *
+ * @param q Query embedding (L2-normalized, 512-dim)
+ * @param deckScryfallIds Scryfall IDs of cards in the player's deck
+ * @param threshold Minimum score to accept (default 0.85)
+ */
+export function top1Scoped(
+  q: Float32Array,
+  deckScryfallIds: string[],
+  threshold = 0.85,
+): (CardMeta & { score: number }) | null {
+  if (!db || !meta) return null
+  if (deckScryfallIds.length === 0) return null
+
+  const searchStart = performance.now()
+
+  // Build a set of deck scryfall IDs for O(1) lookup
+  const deckSet = new Set(deckScryfallIds)
+
+  // Find indices of deck cards in the embedding database
+  let best = -Infinity
+  let idx = -1
+  const n = meta.length
+
+  for (let i = 0; i < n; i++) {
+    const m = meta[i]
+    if (!m?.scryfallId || !deckSet.has(m.scryfallId)) continue
+
+    const dot = dotProduct(q, i)
+    if (dot > best) {
+      best = dot
+      idx = i
+    }
+  }
+
+  const searchDuration = performance.now() - searchStart
+  console.log(
+    `[top1Scoped] Deck search took ${searchDuration.toFixed(1)}ms — checked ${deckScryfallIds.length} deck cards, best=${best.toFixed(3)}`,
+  )
+
+  if (idx < 0 || best < threshold) {
+    return null
+  }
+
+  const matchedMeta = meta[idx]
+  if (!matchedMeta) return null
+
+  return { ...matchedMeta, score: best }
+}
+
+/**
  * Get database embedding for a specific card by name
  * Useful for debugging and comparing browser embeddings with database embeddings
  */
