@@ -80,6 +80,8 @@ export const joinRoom = mutation({
     seatLabel: v.optional(v.string()),
     /** When true, skip duplicate-session detection and add as a linked seat */
     intentionalDuplicate: v.optional(v.boolean()),
+    /** When true, take over the existing seat's sessionId instead of creating a new one */
+    replaceCamera: v.optional(v.boolean()),
   },
   handler: async (
     ctx,
@@ -90,6 +92,7 @@ export const joinRoom = mutation({
       avatar,
       seatLabel,
       intentionalDuplicate,
+      replaceCamera,
     },
   ) => {
     const userId = await getAuthUserId(ctx)
@@ -117,6 +120,31 @@ export const joinRoom = mutation({
 
     if (ban) {
       throw new BannedFromRoomError()
+    }
+
+    // Replace mode: phone takes over the existing seat's video feed
+    if (replaceCamera) {
+      const existingUserSeats = await ctx.db
+        .query('roomPlayers')
+        .withIndex('by_roomId_userId', (q) =>
+          q.eq('roomId', roomId).eq('userId', userId),
+        )
+        .collect()
+
+      const primarySeat = existingUserSeats.find((s) => !s.isLinkedSeat) ?? existingUserSeats[0]
+
+      if (primarySeat) {
+        const now = Date.now()
+        // Take over the existing seat by replacing the sessionId
+        await ctx.db.patch(primarySeat._id, {
+          sessionId,
+          lastSeenAt: now,
+          status: 'active',
+        })
+        return { playerId: primarySeat._id }
+      }
+
+      // No existing seat found — fall through to normal join
     }
 
     // Check if this session already exists
