@@ -16,7 +16,7 @@ import { useCommanderDamageDialog } from '@/contexts/CommanderDamageDialogContex
 import { usePresence } from '@/contexts/PresenceContext'
 import { api } from '@convex/_generated/api'
 import { useQuery } from 'convex/react'
-import { Heart, History, PanelLeft, Trash2 } from 'lucide-react'
+import { BookOpen, Heart, History, PanelLeft, Trash2 } from 'lucide-react'
 
 import { Button } from '@repo/ui/components/button'
 import { Card } from '@repo/ui/components/card'
@@ -34,7 +34,10 @@ import {
   TooltipTrigger,
 } from '@repo/ui/components/tooltip'
 
+import { useDeck } from '@/hooks/useDeck'
 import { CardPreview } from './CardPreview'
+import { DeckImportDialog } from './DeckImportDialog'
+import { DeckPanel } from './DeckPanel'
 import { GameStatsPanel } from './GameStatsPanel'
 import { PlayerList } from './PlayerList'
 import { TurnTracker } from './TurnTracker'
@@ -338,6 +341,10 @@ function SidebarContent({
     removeFromHistory,
   } = useCardQueryContext()
 
+  const { deck, importDeck, moveCard, drawCard, shuffle, mulligan, deleteDeck } =
+    useDeck(roomId, user?.id)
+  const [deckImportOpen, setDeckImportOpen] = useState(false)
+
   // Determine the currently selected card ID for highlighting
   const selectedCardIdForHighlight = useMemo(() => {
     // Prefer state.result, fallback to history[0]
@@ -452,6 +459,29 @@ function SidebarContent({
           ownSeatCount={ownSeatCount}
         />
       </div>
+      {/* Deck Panel */}
+      <div className="flex-shrink-0">
+        {deck ? (
+          <DeckPanel
+            deck={deck}
+            onMoveCard={moveCard}
+            onDraw={drawCard}
+            onShuffle={shuffle}
+            onMulligan={mulligan}
+            onDelete={deleteDeck}
+          />
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDeckImportOpen(true)}
+            className="w-full gap-2 border-surface-2 text-text-muted hover:text-white"
+          >
+            <BookOpen className="h-4 w-4" />
+            Load Deck
+          </Button>
+        )}
+      </div>
       <div className="flex-shrink-0">
         <CardPreview onClose={clearResult} />
       </div>
@@ -467,6 +497,11 @@ function SidebarContent({
       <div className="flex-shrink-0">
         <LifeHistoryList roomId={roomId} />
       </div>
+      <DeckImportDialog
+        open={deckImportOpen}
+        onOpenChange={setDeckImportOpen}
+        onImport={importDeck}
+      />
     </>
   )
 
