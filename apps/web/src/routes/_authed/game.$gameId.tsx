@@ -47,6 +47,8 @@ const gameSearchSchema = z.object({
   seatLabel: z.string().optional(),
   /** "1" when this tab is intentionally a duplicate seat (coerce: TanStack Router JSON-parses numbers) */
   intentional: z.coerce.string().optional(),
+  /** "1" when phone is replacing the desktop webcam */
+  replace: z.coerce.string().optional(),
 })
 
 /**
@@ -169,7 +171,7 @@ export const Route = createFileRoute('/_authed/game/$gameId')({
 function GameRoomPage() {
   const { gameId } = Route.useParams()
   const { roomNotFound } = Route.useLoaderData()
-  const { detector, usePerspectiveWarp, testStream, seatLabel, intentional } =
+  const { detector, usePerspectiveWarp, testStream, seatLabel, intentional, replace } =
     Route.useSearch()
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -259,6 +261,7 @@ function GameRoomPage() {
           showTestStream={testStream}
           seatLabel={seatLabel}
           intentionalDuplicate={intentional === '1'}
+          replaceCamera={replace === '1'}
         />
       </Suspense>
     </ErrorBoundary>

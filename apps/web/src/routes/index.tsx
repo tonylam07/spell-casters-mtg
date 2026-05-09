@@ -18,6 +18,8 @@ const searchSchema = z.object({
   seatLabel: z.string().optional(),
   /** "1" when this tab is intentionally a duplicate seat (coerce: TanStack Router JSON-parses numbers) */
   intentional: z.coerce.string().optional(),
+  /** "1" when phone is replacing the desktop webcam */
+  replace: z.coerce.string().optional(),
 })
 
 export const Route = createFileRoute('/')({
@@ -31,7 +33,7 @@ export const Route = createFileRoute('/')({
 })
 
 function LandingPageContent() {
-  const { error, join, seatLabel, intentional } = Route.useSearch()
+  const { error, join, seatLabel, intentional, replace } = Route.useSearch()
   const navigate = useNavigate()
   const {
     user,
@@ -49,6 +51,7 @@ function LandingPageContent() {
     const params = new URLSearchParams()
     if (seatLabel) params.set('seatLabel', seatLabel)
     if (intentional === '1') params.set('intentional', '1')
+    if (replace === '1') params.set('replace', '1')
     const qs = params.toString()
     const target = `/game/${join}${qs ? `?${qs}` : ''}`
     if (isAuthLoading) return
@@ -57,7 +60,7 @@ function LandingPageContent() {
       return
     }
     navigate({ to: target })
-  }, [join, seatLabel, intentional, user, isAuthLoading, navigate])
+  }, [join, seatLabel, intentional, replace, user, isAuthLoading, navigate])
 
   // After authentication completes, redirect to the stored return URL (e.g., game room)
   useEffect(() => {
