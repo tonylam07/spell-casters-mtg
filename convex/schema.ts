@@ -177,6 +177,33 @@ export default defineSchema({
     .index('by_room_owner', ['roomId', 'ownerUserId']),
 
   /**
+   * decks - Imported decklists per player per room
+   */
+  decks: defineTable({
+    roomId: v.string(),
+    userId: v.string(),
+    name: v.string(),
+    source: v.string(),
+    sourceUrl: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index('by_roomId_userId', ['roomId', 'userId']),
+
+  /**
+   * deckCards - Individual cards in a deck, assigned to zones
+   */
+  deckCards: defineTable({
+    deckId: v.id('decks'),
+    scryfallId: v.string(),
+    name: v.string(),
+    quantity: v.number(),
+    zone: v.string(),
+    order: v.number(),
+  })
+    .index('by_deckId_zone', ['deckId', 'zone'])
+    .index('by_deckId', ['deckId']),
+
+  /**
    * counters - Sequential counters for generating IDs
    *
    * Used to track total counts for various entities (e.g., rooms).
