@@ -13,7 +13,7 @@ import { Input } from '@repo/ui/components/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/tabs'
 import { Textarea } from '@repo/ui/components/textarea'
 
-import type { ResolvedDeckCard } from '@/lib/deck-parsers'
+import type { DeckCard, ResolvedDeckCard } from '@/lib/deck-parsers'
 import {
   parseArchidekt,
   parseMoxfield,
@@ -46,7 +46,7 @@ type ImportState =
       source: string
       sourceUrl?: string
       resolved: ResolvedDeckCard[]
-      unresolved: string[]
+      unresolved: DeckCard[]
     }
 
 export function DeckImportDialog({
@@ -67,7 +67,9 @@ export function DeckImportDialog({
   }
 
   const handleParse = async (
-    parseFn: () => Promise<ReturnType<typeof parseMoxfield>>,
+    parseFn: () => Promise<Awaited<ReturnType<typeof parseMoxfield>>>,
+    source: string,
+    sourceUrl?: string,
   ) => {
     setState({ step: 'loading', message: 'Fetching decklist...' })
     try {
@@ -77,8 +79,8 @@ export function DeckImportDialog({
       setState({
         step: 'preview',
         name: parsed.name,
-        source: parsed.source,
-        sourceUrl: parsed.sourceUrl,
+        source,
+        sourceUrl,
         resolved,
         unresolved,
       })
@@ -155,7 +157,7 @@ export function DeckImportDialog({
               />
               <Button
                 onClick={() =>
-                  handleParse(() => parseMoxfield(moxfieldUrl))
+                  handleParse(() => parseMoxfield(moxfieldUrl), 'moxfield', moxfieldUrl)
                 }
                 disabled={!moxfieldUrl.trim()}
                 className="w-full bg-brand text-white hover:bg-brand/90"
@@ -174,7 +176,7 @@ export function DeckImportDialog({
               />
               <Button
                 onClick={() =>
-                  handleParse(() => parseArchidekt(archidektUrl))
+                  handleParse(() => parseArchidekt(archidektUrl), 'archidekt', archidektUrl)
                 }
                 disabled={!archidektUrl.trim()}
                 className="w-full bg-brand text-white hover:bg-brand/90"
@@ -193,7 +195,7 @@ export function DeckImportDialog({
               />
               <Button
                 onClick={() =>
-                  handleParse(async () => parsePlainText(textInput))
+                  handleParse(async () => parsePlainText(textInput), 'text')
                 }
                 disabled={!textInput.trim()}
                 className="w-full bg-brand text-white hover:bg-brand/90"
@@ -221,8 +223,8 @@ export function DeckImportDialog({
                   {state.unresolved.length} card(s) not found:
                 </p>
                 <ul className="space-y-0.5 text-xs text-text-muted">
-                  {state.unresolved.map((name) => (
-                    <li key={name}>• {name}</li>
+                  {state.unresolved.map((card) => (
+                    <li key={card.name}>• {card.name}</li>
                   ))}
                 </ul>
               </div>

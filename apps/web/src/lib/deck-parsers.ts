@@ -63,11 +63,11 @@ export function extractMoxfieldId(url: string): string | null {
   try {
     const urlObj = new URL(url)
     const match = urlObj.pathname.match(/\/decks\/([^/]+)/)
-    return match ? match[1] : null
+    return match?.[1] ?? null
   } catch {
     // Try regex if URL parsing fails
     const match = url.match(/moxfield\.com\/decks\/([^/?#]+)/)
-    return match ? match[1] : null
+    return match?.[1] ?? null
   }
 }
 
@@ -79,11 +79,11 @@ export function extractArchidektId(url: string): string | null {
   try {
     const urlObj = new URL(url)
     const match = urlObj.pathname.match(/\/decks\/(\d+)/)
-    return match ? match[1] : null
+    return match?.[1] ?? null
   } catch {
     // Try regex if URL parsing fails
     const match = url.match(/archidekt\.com\/decks\/(\d+)/)
-    return match ? match[1] : null
+    return match?.[1] ?? null
   }
 }
 
@@ -272,12 +272,12 @@ export function parsePlainText(text: string): ParseResult {
 
         if (pattern === patterns[0]) {
           // First pattern: quantity is first, name is second
-          quantity = parseInt(match[1], 10)
-          name = match[2]
+          quantity = parseInt(match[1] ?? '0', 10)
+          name = match[2] ?? ''
         } else {
           // Second pattern: name is first, quantity is second
-          name = match[1]
-          quantity = parseInt(match[2], 10)
+          name = match[1] ?? ''
+          quantity = parseInt(match[2] ?? '0', 10)
         }
 
         if (!isNaN(quantity) && name && quantity > 0) {

@@ -44,9 +44,9 @@ interface DeckPanelProps {
   deck: DeckData
   onMoveCard: (cardId: Id<'deckCards'>, toZone: Zone) => void
   onDraw: () => Promise<{ name: string }>
-  onShuffle: () => Promise<void>
-  onMulligan: (drawCount: number) => Promise<void>
-  onDelete: () => Promise<void>
+  onShuffle: () => Promise<unknown>
+  onMulligan: (drawCount: number) => Promise<unknown>
+  onDelete: () => Promise<unknown>
 }
 
 const ZONE_ICONS: Record<Zone, React.ComponentType<{ className?: string }>> = {
