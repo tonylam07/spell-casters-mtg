@@ -43,9 +43,11 @@ export function CreateGameDialog({
   const isPending = isCreating && !createdGameId
 
   // Compute shareable link (only on client)
+  // NOTE: links land on `/` then client-redirect to `/game/{id}` to avoid
+  // a known SSR 500 on direct hits to /game/{id}. See routes/index.tsx.
   const shareLink = useMemo(() => {
     if (!createdGameId || typeof window === 'undefined') return ''
-    return `${window.location.origin}/game/${createdGameId}`
+    return `${window.location.origin}/?join=${createdGameId}`
   }, [createdGameId])
 
   const handleCopy = async () => {
