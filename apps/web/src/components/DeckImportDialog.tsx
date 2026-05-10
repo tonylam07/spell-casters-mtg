@@ -184,11 +184,16 @@ export function DeckImportDialog({
                     return
                   }
                   handleParse(async () => {
+                    console.log('[DeckImport] Fetching Moxfield deck:', deckId)
                     const data = await fetchMoxfieldDeckServer({ data: deckId })
-                    if (data && typeof data === 'object' && 'error' in data) {
+                    console.log('[DeckImport] Server response type:', typeof data, 'keys:', data && typeof data === 'object' ? Object.keys(data).slice(0, 10) : 'N/A')
+                    if (data && typeof data === 'object' && 'error' in data && typeof (data as Record<string, unknown>).error === 'string') {
+                      console.log('[DeckImport] Server returned error:', (data as { error: string }).error)
                       return { name: '', cards: [], error: (data as { error: string }).error }
                     }
-                    return parseMoxfieldData(data as Record<string, unknown>)
+                    const parsed = parseMoxfieldData(data as Record<string, unknown>)
+                    console.log('[DeckImport] Parsed result:', { name: parsed.name, cardCount: parsed.cards.length, error: parsed.error })
+                    return parsed
                   }, 'moxfield', moxfieldUrl)
                 }}
                 disabled={!moxfieldUrl.trim()}

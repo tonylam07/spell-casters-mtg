@@ -97,16 +97,24 @@ export function parseMoxfieldData(data: Record<string, unknown>): ParseResult {
   try {
     const cards: DeckCard[] = []
 
+    console.log('[parseMoxfieldData] Top-level keys:', Object.keys(data).slice(0, 15))
+    console.log('[parseMoxfieldData] mainboard type:', typeof data.mainboard, 'truthy:', !!data.mainboard)
+    console.log('[parseMoxfieldData] mainboardCount:', data.mainboardCount)
+
     // Parse mainboard
     const mainboard = data.mainboard as Record<string, { quantity: number; card: { name: string } }> | undefined
     if (mainboard) {
-      for (const [cardName, entry] of Object.entries(mainboard)) {
+      const entries = Object.entries(mainboard)
+      console.log('[parseMoxfieldData] mainboard entries:', entries.length, 'first key:', entries[0]?.[0])
+      for (const [cardName, entry] of entries) {
         cards.push({
           name: cardName,
           quantity: entry.quantity,
           section: 'main',
         })
       }
+    } else {
+      console.log('[parseMoxfieldData] No mainboard found in data!')
     }
 
     // Parse sideboard
