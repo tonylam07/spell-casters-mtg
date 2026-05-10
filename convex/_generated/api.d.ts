@@ -12,6 +12,8 @@ import type * as auth from "../auth.js";
 import type * as bans from "../bans.js";
 import type * as constants from "../constants.js";
 import type * as crons from "../crons.js";
+import type * as deckProxy from "../deckProxy.js";
+import type * as decks from "../decks.js";
 import type * as env from "../env.js";
 import type * as errors from "../errors.js";
 import type * as gameEvents from "../gameEvents.js";
@@ -36,6 +38,8 @@ declare const fullApi: ApiFromModules<{
   bans: typeof bans;
   constants: typeof constants;
   crons: typeof crons;
+  deckProxy: typeof deckProxy;
+  decks: typeof decks;
   env: typeof env;
   errors: typeof errors;
   gameEvents: typeof gameEvents;

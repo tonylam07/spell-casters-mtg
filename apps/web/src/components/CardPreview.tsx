@@ -61,9 +61,13 @@ export function CardPreview({ onClose }: CardPreviewProps) {
 
   const lowConfidence = isLowConfidence(displayResult.score)
 
+  // Prefer explicit URLs, fall back to Scryfall API image endpoint by ID
   const cardImage =
     displayResult.card_url ||
-    displayResult.image_url?.replace('/art_crop/', '/normal/')
+    displayResult.image_url?.replace('/art_crop/', '/normal/') ||
+    (displayResult.scryfallId
+      ? `https://api.scryfall.com/cards/${displayResult.scryfallId}?format=image&version=normal`
+      : undefined)
 
   return (
     <>

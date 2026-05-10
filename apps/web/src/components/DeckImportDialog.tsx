@@ -1,4 +1,14 @@
 import { useState } from 'react'
+import {
+  extractArchidektId,
+  extractMoxfieldId,
+  parseArchidektData,
+  parseMoxfieldData,
+  parsePlainText,
+  resolveWithScryfall,
+} from '@/lib/deck-parsers'
+import { api } from '@convex/_generated/api'
+import { useAction } from 'convex/react'
 import { Loader2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -14,12 +24,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/ta
 import { Textarea } from '@repo/ui/components/textarea'
 
 import type { DeckCard, ResolvedDeckCard } from '@/lib/deck-parsers'
-import {
-  parseArchidekt,
-  parseMoxfield,
-  parsePlainText,
-  resolveWithScryfall,
-} from '@/lib/deck-parsers'
 
 interface DeckImportDialogProps {
   open: boolean
@@ -58,6 +62,8 @@ export function DeckImportDialog({
   const [moxfieldUrl, setMoxfieldUrl] = useState('')
   const [archidektUrl, setArchidektUrl] = useState('')
   const [textInput, setTextInput] = useState('')
+  const fetchMoxfield = useAction(api.deckProxy.fetchMoxfieldDeck)
+  const fetchArchidekt = useAction(api.deckProxy.fetchArchidektDeck)
 
   const reset = () => {
     setState({ step: 'input' })
@@ -74,6 +80,21 @@ export function DeckImportDialog({
     setState({ step: 'loading', message: 'Fetching decklist...' })
     try {
       const parsed = await parseFn()
+
+      // Check for parse errors (e.g., CORS failure, invalid URL, API error)
+      if (parsed.error) {
+        toast.error(parsed.error)
+        setState({ step: 'input' })
+        return
+      }
+
+      // Check for empty deck
+      if (parsed.cards.length === 0) {
+        toast.error('No cards found in deck. Check the URL and try again.')
+        setState({ step: 'input' })
+        return
+      }
+
       setState({ step: 'loading', message: 'Resolving cards with Scryfall...' })
       const { resolved, unresolved } = await resolveWithScryfall(parsed.cards)
       setState({
@@ -156,9 +177,17 @@ export function DeckImportDialog({
                 className="border-surface-2 bg-surface-0 text-white"
               />
               <Button
-                onClick={() =>
-                  handleParse(() => parseMoxfield(moxfieldUrl), 'moxfield', moxfieldUrl)
-                }
+                onClick={() => {
+                  const deckId = extractMoxfieldId(moxfieldUrl)
+                  if (!deckId) {
+                    toast.error('Invalid Moxfield URL')
+                    return
+                  }
+                  handleParse(async () => {
+                    const data = await fetchMoxfield({ deckId })
+                    return parseMoxfieldData(data as Record<string, unknown>)
+                  }, 'moxfield', moxfieldUrl)
+                }}
                 disabled={!moxfieldUrl.trim()}
                 className="w-full bg-brand text-white hover:bg-brand/90"
               >
@@ -175,9 +204,17 @@ export function DeckImportDialog({
                 className="border-surface-2 bg-surface-0 text-white"
               />
               <Button
-                onClick={() =>
-                  handleParse(() => parseArchidekt(archidektUrl), 'archidekt', archidektUrl)
-                }
+                onClick={() => {
+                  const deckId = extractArchidektId(archidektUrl)
+                  if (!deckId) {
+                    toast.error('Invalid Archidekt URL')
+                    return
+                  }
+                  handleParse(async () => {
+                    const data = await fetchArchidekt({ deckId })
+                    return parseArchidektData(data as Record<string, unknown>)
+                  }, 'archidekt', archidektUrl)
+                }}
                 disabled={!archidektUrl.trim()}
                 className="w-full bg-brand text-white hover:bg-brand/90"
               >

@@ -41,8 +41,6 @@ export interface ResolutionResult {
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-const MOXFIELD_API = 'https://api2.moxfield.com/v2/decks/all'
-const ARCHIDEKT_API = 'https://archidekt.com/api/decks'
 const SCRYFALL_API = 'https://api.scryfall.com'
 
 /** Max cards per Scryfall batch request */
@@ -92,43 +90,32 @@ export function extractArchidektId(url: string): string | null {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Parse a deck from Moxfield API
- * Fetches the deck JSON and extracts mainboard, sideboard, and commanders
+ * Parse a Moxfield deck from pre-fetched API data.
+ * The actual API fetch is done server-side via Convex action to avoid CORS.
  */
-export async function parseMoxfield(url: string): Promise<ParseResult> {
-  const deckId = extractMoxfieldId(url)
-  if (!deckId) {
-    return { name: '', cards: [], error: 'Invalid Moxfield URL' }
-  }
-
+export function parseMoxfieldData(data: Record<string, unknown>): ParseResult {
   try {
-    const res = await fetch(`${MOXFIELD_API}/${deckId}`)
-    if (!res.ok) {
-      return { name: '', cards: [], error: 'Failed to fetch Moxfield deck' }
-    }
-
-    const data = await res.json()
     const cards: DeckCard[] = []
 
     // Parse mainboard
-    if (data.mainboard) {
-      for (const [cardName, entry] of Object.entries(data.mainboard)) {
-        const deckEntry = entry as { quantity: number; card: { name: string } }
+    const mainboard = data.mainboard as Record<string, { quantity: number; card: { name: string } }> | undefined
+    if (mainboard) {
+      for (const [cardName, entry] of Object.entries(mainboard)) {
         cards.push({
           name: cardName,
-          quantity: deckEntry.quantity,
+          quantity: entry.quantity,
           section: 'main',
         })
       }
     }
 
     // Parse sideboard
-    if (data.sideboard) {
-      for (const [cardName, entry] of Object.entries(data.sideboard)) {
-        const deckEntry = entry as { quantity: number; card: { name: string } }
+    const sideboard = data.sideboard as Record<string, { quantity: number; card: { name: string } }> | undefined
+    if (sideboard) {
+      for (const [cardName, entry] of Object.entries(sideboard)) {
         cards.push({
           name: cardName,
-          quantity: deckEntry.quantity,
+          quantity: entry.quantity,
           section: 'sideboard',
         })
       }
@@ -136,12 +123,12 @@ export async function parseMoxfield(url: string): Promise<ParseResult> {
 
     // Parse commanders
     let commander: string | undefined
-    if (data.commanders) {
-      for (const [cardName, entry] of Object.entries(data.commanders)) {
-        const deckEntry = entry as { quantity: number; card: { name: string } }
+    const commanders = data.commanders as Record<string, { quantity: number; card: { name: string } }> | undefined
+    if (commanders) {
+      for (const [cardName, entry] of Object.entries(commanders)) {
         cards.push({
           name: cardName,
-          quantity: deckEntry.quantity,
+          quantity: entry.quantity,
           section: 'commander',
         })
         if (!commander) {
@@ -151,7 +138,7 @@ export async function parseMoxfield(url: string): Promise<ParseResult> {
     }
 
     return {
-      name: data.name || 'Untitled Deck',
+      name: (data.name as string) || 'Untitled Deck',
       commander,
       cards,
     }
@@ -165,28 +152,23 @@ export async function parseMoxfield(url: string): Promise<ParseResult> {
 }
 
 /**
- * Parse a deck from Archidekt API
- * Fetches the deck JSON and extracts cards by category (main/sideboard/commander)
+ * Parse an Archidekt deck from pre-fetched API data.
+ * The actual API fetch is done server-side via Convex action to avoid CORS.
  */
-export async function parseArchidekt(url: string): Promise<ParseResult> {
-  const deckId = extractArchidektId(url)
-  if (!deckId) {
-    return { name: '', cards: [], error: 'Invalid Archidekt URL' }
-  }
-
+export function parseArchidektData(data: Record<string, unknown>): ParseResult {
   try {
-    const res = await fetch(`${ARCHIDEKT_API}/${deckId}/`)
-    if (!res.ok) {
-      return { name: '', cards: [], error: 'Failed to fetch Archidekt deck' }
-    }
-
-    const data = await res.json()
     const cards: DeckCard[] = []
     let commander: string | undefined
 
     // Parse cards array
-    if (data.cards && Array.isArray(data.cards)) {
-      for (const card of data.cards) {
+    const cardsList = data.cards as Array<{
+      card?: { oracleCard?: { name?: string }; name?: string }
+      categories?: string[]
+      quantity?: number
+    }> | undefined
+
+    if (cardsList && Array.isArray(cardsList)) {
+      for (const card of cardsList) {
         const cardName = card.card?.oracleCard?.name || card.card?.name
         if (!cardName) continue
 
@@ -211,7 +193,7 @@ export async function parseArchidekt(url: string): Promise<ParseResult> {
     }
 
     return {
-      name: data.name || 'Untitled Deck',
+      name: (data.name as string) || 'Untitled Deck',
       commander,
       cards,
     }
