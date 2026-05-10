@@ -60,10 +60,27 @@ export default defineConfig(({ mode: mode }) => {
             // landing/license SSR chunks. Mark them external so Node resolves
             // them at runtime instead.
             rollupConfig: {
-              external: [/^convex(\/.*)?$/, /^@convex-dev\/auth(\/.*)?$/],
+              external: [
+                /^convex(\/.*)?$/,
+                /^@convex-dev\/auth(\/.*)?$/,
+                // React 19's CJS-to-ESM interop breaks when bundled into
+                // the Nitro server output (setting 'Activity' on undefined).
+                // Externalize so Node resolves at runtime instead.
+                /^react(\/.*)?$/,
+                /^react-dom(\/.*)?$/,
+                'use-sync-external-store',
+                'use-sync-external-store/shim/with-selector',
+              ],
             },
             rolldownConfig: {
-              external: [/^convex(\/.*)?$/, /^@convex-dev\/auth(\/.*)?$/],
+              external: [
+                /^convex(\/.*)?$/,
+                /^@convex-dev\/auth(\/.*)?$/,
+                /^react(\/.*)?$/,
+                /^react-dom(\/.*)?$/,
+                'use-sync-external-store',
+                'use-sync-external-store/shim/with-selector',
+              ],
             },
           })
         : false,
