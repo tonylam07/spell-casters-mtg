@@ -2,10 +2,8 @@ import type { CardQueryResult } from '@/types/card-query'
 import { useState } from 'react'
 import { useCardQueryContext } from '@/contexts/CardQueryContext'
 import { toScryfallPngUrl } from '@/lib/scryfall'
-import { isLowConfidence } from '@/types/card-query'
 import {
   AlertCircle,
-  AlertTriangle,
   ExternalLink,
   Eye,
   Loader2,
@@ -13,11 +11,9 @@ import {
   ZoomIn,
 } from 'lucide-react'
 
-import { Alert, AlertDescription } from '@repo/ui/components/alert'
 import { Button } from '@repo/ui/components/button'
 import { Dialog, DialogContent, DialogTitle } from '@repo/ui/components/dialog'
 
-import { CardPickerPanel } from './CardPickerPanel'
 import { SidebarCard } from './GameRoomSidebar'
 
 interface CardPreviewProps {
@@ -59,8 +55,6 @@ export function CardPreview({ onClose }: CardPreviewProps) {
 
   const cardState = state.status
 
-  const lowConfidence = isLowConfidence(displayResult.score)
-
   // Prefer explicit URLs, fall back to Scryfall API image endpoint by ID
   const cardImage =
     displayResult.card_url ||
@@ -88,37 +82,6 @@ export function CardPreview({ onClose }: CardPreviewProps) {
         }
       >
         <div className="relative">
-          {/* Low Confidence Warning */}
-          {cardState === 'success' && lowConfidence && (
-            <div className="px-3 pt-3">
-              <Alert className="border-warning/30 bg-warning/10">
-                <AlertTriangle className="h-4 w-4 text-warning" />
-                <AlertDescription className="ml-2 text-xs text-warning">
-                  Low confidence match. This might not be the correct card.
-                  Please verify.
-                </AlertDescription>
-              </Alert>
-            </div>
-          )}
-
-          {/* Top-K picker — show when low confidence and we have alternatives */}
-          {cardState === 'success' &&
-            lowConfidence &&
-            state.alternatives.length > 1 && (
-              <div className="px-3 pt-3">
-                <CardPickerPanel
-                  alternatives={state.alternatives}
-                  selectedScryfallId={
-                    'scryfallId' in displayResult
-                      ? displayResult.scryfallId
-                      : undefined
-                  }
-                  ocrText={state.ocrText}
-                  onSelect={commitAlternative}
-                />
-              </div>
-            )}
-
           {/* Card Image */}
           <div className="p-3">
             <div className="group ease-out relative flex min-h-[300px] cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-surface-0 transition-transform duration-200 hover:scale-[1.02]">

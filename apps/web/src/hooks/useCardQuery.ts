@@ -611,6 +611,17 @@ export function useCardQuery(roomId: string): UseCardQueryReturn {
           )
         }
 
+        // Gate: suppress results below minimum CLIP score threshold.
+        // Non-card objects (keyboards, desks, etc.) typically score 0.3–0.5
+        // against random cards. Only show results we're reasonably confident about.
+        const MIN_DISPLAY_SCORE = 0.55
+        if (finalResult.score < MIN_DISPLAY_SCORE) {
+          console.log(
+            `[useCardQuery] Suppressing low-score result: "${finalResult.name}" (score=${finalResult.score.toFixed(3)}, threshold=${MIN_DISPLAY_SCORE})`,
+          )
+          return
+        }
+
         // Set success state
         setIsDismissed(false) // Un-dismiss when new card is detected
         setState({

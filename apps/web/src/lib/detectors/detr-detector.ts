@@ -8,6 +8,10 @@
  */
 
 import type { DetectedCard, DetectionResult, Point } from '@/types/card-query'
+import {
+  isValidCardAspectRatio,
+  MIN_CARD_AREA,
+} from '@/lib/detection-constants'
 import { env, pipeline } from '@huggingface/transformers'
 
 import type {
@@ -170,6 +174,28 @@ export class DETRDetector implements CardDetector {
 
       // Filter by confidence
       if (score < 0.5) continue
+
+      // Filter by aspect ratio — MTG cards are ~0.716 (w/h).
+      // Rejects keyboards, monitors, faces, and other non-card objects.
+      const width = box.xmax - box.xmin
+      const height = box.ymax - box.ymin
+      if (height <= 0) continue
+      const aspectRatio = width / height
+      if (!isValidCardAspectRatio(aspectRatio)) {
+        if (!filterReasons['aspect_ratio']) filterReasons['aspect_ratio'] = []
+        filterReasons['aspect_ratio'].push(
+          `AR=${aspectRatio.toFixed(2)} (need 0.57–0.86)`,
+        )
+        continue
+      }
+
+      // Filter by minimum area — reject tiny noise detections
+      const area = (width * height) / (canvasWidth * canvasHeight)
+      if (area < MIN_CARD_AREA) {
+        if (!filterReasons['too_small']) filterReasons['too_small'] = []
+        filterReasons['too_small'].push(`area=${(area * 100).toFixed(1)}%`)
+        continue
+      }
 
       // Convert to DetectedCard
       const card: DetectedCard = {
