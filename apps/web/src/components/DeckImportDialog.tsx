@@ -7,8 +7,10 @@ import {
   parsePlainText,
   resolveWithScryfall,
 } from '@/lib/deck-parsers'
-import { api } from '@convex/_generated/api'
-import { useAction } from 'convex/react'
+import {
+  fetchMoxfieldDeckServer,
+  fetchArchidektDeckServer,
+} from '@/lib/deck-fetch'
 import { Loader2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -62,8 +64,6 @@ export function DeckImportDialog({
   const [moxfieldUrl, setMoxfieldUrl] = useState('')
   const [archidektUrl, setArchidektUrl] = useState('')
   const [textInput, setTextInput] = useState('')
-  const fetchMoxfield = useAction(api.deckProxy.fetchMoxfieldDeck)
-  const fetchArchidekt = useAction(api.deckProxy.fetchArchidektDeck)
 
   const reset = () => {
     setState({ step: 'input' })
@@ -184,7 +184,10 @@ export function DeckImportDialog({
                     return
                   }
                   handleParse(async () => {
-                    const data = await fetchMoxfield({ deckId })
+                    const data = await fetchMoxfieldDeckServer({ data: deckId })
+                    if (data && typeof data === 'object' && 'error' in data) {
+                      return { name: '', cards: [], error: (data as { error: string }).error }
+                    }
                     return parseMoxfieldData(data as Record<string, unknown>)
                   }, 'moxfield', moxfieldUrl)
                 }}
@@ -211,7 +214,10 @@ export function DeckImportDialog({
                     return
                   }
                   handleParse(async () => {
-                    const data = await fetchArchidekt({ deckId })
+                    const data = await fetchArchidektDeckServer({ data: deckId })
+                    if (data && typeof data === 'object' && 'error' in data) {
+                      return { name: '', cards: [], error: (data as { error: string }).error }
+                    }
                     return parseArchidektData(data as Record<string, unknown>)
                   }, 'archidekt', archidektUrl)
                 }}
