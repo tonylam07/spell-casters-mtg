@@ -7,10 +7,8 @@ import {
   parsePlainText,
   resolveWithScryfall,
 } from '@/lib/deck-parsers'
-import {
-  fetchMoxfieldDeckServer,
-  fetchArchidektDeckServer,
-} from '@/lib/deck-fetch'
+import { api } from '@convex/_generated/api'
+import { useAction } from 'convex/react'
 import { Loader2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -64,6 +62,8 @@ export function DeckImportDialog({
   const [moxfieldUrl, setMoxfieldUrl] = useState('')
   const [archidektUrl, setArchidektUrl] = useState('')
   const [textInput, setTextInput] = useState('')
+  const fetchMoxfield = useAction(api.deckProxy.fetchMoxfieldDeck)
+  const fetchArchidekt = useAction(api.deckProxy.fetchArchidektDeck)
 
   const reset = () => {
     setState({ step: 'input' })
@@ -184,16 +184,8 @@ export function DeckImportDialog({
                     return
                   }
                   handleParse(async () => {
-                    console.log('[DeckImport] Fetching Moxfield deck:', deckId)
-                    const data = await fetchMoxfieldDeckServer({ data: deckId })
-                    console.log('[DeckImport] Server response type:', typeof data, 'keys:', data && typeof data === 'object' ? Object.keys(data).slice(0, 10) : 'N/A')
-                    if (data && typeof data === 'object' && 'error' in data && typeof (data as Record<string, unknown>).error === 'string') {
-                      console.log('[DeckImport] Server returned error:', (data as { error: string }).error)
-                      return { name: '', cards: [], error: (data as { error: string }).error }
-                    }
-                    const parsed = parseMoxfieldData(data as Record<string, unknown>)
-                    console.log('[DeckImport] Parsed result:', { name: parsed.name, cardCount: parsed.cards.length, error: parsed.error })
-                    return parsed
+                    const data = await fetchMoxfield({ deckId })
+                    return parseMoxfieldData(data as Record<string, unknown>)
                   }, 'moxfield', moxfieldUrl)
                 }}
                 disabled={!moxfieldUrl.trim()}
@@ -219,10 +211,7 @@ export function DeckImportDialog({
                     return
                   }
                   handleParse(async () => {
-                    const data = await fetchArchidektDeckServer({ data: deckId })
-                    if (data && typeof data === 'object' && 'error' in data) {
-                      return { name: '', cards: [], error: (data as { error: string }).error }
-                    }
+                    const data = await fetchArchidekt({ deckId })
                     return parseArchidektData(data as Record<string, unknown>)
                   }, 'archidekt', archidektUrl)
                 }}
